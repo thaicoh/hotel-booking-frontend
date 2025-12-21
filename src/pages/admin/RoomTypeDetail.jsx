@@ -1,8 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { getRoomTypeDetails, updateBasicInfo  } from "../../api/roomtypes"; // Import hàm từ roomtypes.js
-import { getRoomPhotosByRoomTypeId } from "../../api/roomPhotos"; // Import hàm gọi ảnh phòng
-import { getRoomsByRoomTypeId } from "../../api/rooms"; // Import hàm gọi danh sách phòng
+import RoomModal from "../../components/admin/RoomModal";
+
+
+import {
+  getRoomPhotosByRoomTypeId,
+  deleteRoomPhoto,
+  uploadMainRoomPhoto,
+  updateMainRoomPhoto,
+  updateRoomPhoto ,
+  uploadSubRoomPhoto,
+
+} from "../../api/roomPhotos";
+
+
+
+import { getRoomsByRoomTypeId,createRoom, updateRoom } from "../../api/rooms"; // Import hàm gọi danh sách phòng
 import { getBranches } from "../../api/branches"; // API lấy danh sách chi nhánh
 import { API_BASE_URL } from "../../config/api";
 
@@ -19,6 +33,21 @@ export default function RoomTypeDetail() {
   const location = useLocation();
   const [isEditingMainPhoto, setIsEditingMainPhoto] = useState(false);
   const [selectedFileURL, setSelectedFileURL] = useState(""); // Store the selected file
+  const [extraFiles, setExtraFiles] = useState([]); // optional: lưu preview ảnh phụ mới chọn
+  const [editingOtherId, setEditingOtherId] = useState(null); // id ảnh phụ đang đổi
+  const [otherPreviewMap, setOtherPreviewMap] = useState({}); // { [id]: blobUrl 
+
+
+  const [selectedRoom, setSelectedRoom] = useState(null);
+
+
+  const mainFileInputRef = useRef(null);
+  // Thêm ref vào từng ảnh phụ
+  const otherFileInputRefs = useRef({}); // Lưu ref cho từng ảnh phụ
+
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState("");
+
 
 
 
@@ -49,12 +78,22 @@ export default function RoomTypeDetail() {
       }
     };
 
+
     fetchRoomDetails();
   }, [id, location.search]);
 
   if (isLoading) {
     return <p>Loading...</p>;
   }
+
+  const loadRooms = async () => {
+    try {
+      const roomsResponse = await getRoomsByRoomTypeId(id);
+      setRooms(roomsResponse.data.result || []);
+    } catch (error) {
+      console.error("Error loading rooms", error);
+    }
+  };
 
   // Handle Save (chỉ cập nhật Room Type, Capacity, Description)
   const handleSaveBasicInfo = async () => {
@@ -88,30 +127,103 @@ export default function RoomTypeDetail() {
     }
   };
 
-  // Handle Remove Main Photo (sẽ ẩn ảnh chính và hiển thị input file)
-  const handleRemoveMainPhoto = () => {
-    setIsEditingMainPhoto(true); // Khi bấm "X", bật chế độ chỉnh sửa ảnh chính
+
+  const handleMainFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const hasMainPhoto = roomPhotos.some((p) => p.isMain);
+
+    // ✅ Nếu chưa có ảnh chính -> upload luôn
+    if (!hasMainPhoto) {
+      try {
+        await uploadMainRoomPhoto(id, file);
+
+        const roomPhotosResponse = await getRoomPhotosByRoomTypeId(id);
+        setRoomPhotos(roomPhotosResponse.data.result || []);
+
+        setSelectedFileURL("");
+        setIsEditingMainPhoto(false);
+      } catch (err) {
+        console.error("Upload main photo failed:", err);
+        alert("Upload ảnh chính thất bại. Vui lòng thử lại.");
+      } finally {
+        e.target.value = "";
+      }
+      return;
+    }
+
+    // ✅ Nếu đã có ảnh chính -> preview (tạm thời)
+    const fileURL = URL.createObjectURL(file);
+    setSelectedFileURL(fileURL);
+    setIsEditingMainPhoto(false);
+
+    e.target.value = "";
   };
 
-// Handle File Change
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Tạo URL tạm thời cho ảnh đã chọn
-      const fileURL = URL.createObjectURL(file);
-      
-      setSelectedFileURL(fileURL)
+  const handleMainUpdateFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      // Ẩn ô chọn file
-      setIsEditingMainPhoto(false);
+    try {
+      await updateMainRoomPhoto(id, file);
 
-      // Gửi ảnh lên server nếu cần (có thể sử dụng một hàm upload file ở đây)
-      // Gửi ảnh lên API để lưu (nếu cần)
-      console.log("File selected:", file);
+      const roomPhotosResponse = await getRoomPhotosByRoomTypeId(id);
+      setRoomPhotos(roomPhotosResponse.data.result || []);
+
+      setSelectedFileURL(""); // không cần preview nữa vì đã upload
+    } catch (err) {
+      console.error("Update main photo failed:", err);
+      alert("Đổi ảnh chính thất bại. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
     }
   };
 
- 
+  // Khi chọn file cho ảnh phụ
+  const handleOtherFileChange = async (photoId, e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileURL = URL.createObjectURL(file);
+
+    // Nếu là ảnh local (preview), chỉ cần thay đổi file preview
+    if (String(photoId).startsWith("local-")) {
+      setOtherPreviewMap((prev) => ({
+        ...prev,
+        [photoId]: fileURL,
+      }));
+
+      setEditingOtherId(null);
+      e.target.value = "";
+      return;
+    }
+
+    // Nếu là ảnh trên server -> gọi API để cập nhật ảnh
+    try {
+      await updateRoomPhoto(photoId, file);
+      const roomPhotosResponse = await getRoomPhotosByRoomTypeId(id);
+      setRoomPhotos(roomPhotosResponse.data.result || []);
+
+      // Xóa preview cũ nếu có
+      if (otherPreviewMap[photoId]) {
+        URL.revokeObjectURL(otherPreviewMap[photoId]);
+        setOtherPreviewMap((prev) => {
+          const next = { ...prev };
+          delete next[photoId];
+          return next;
+        });
+      }
+
+      setEditingOtherId(null);
+    } catch (err) {
+      console.error("Update other photo failed:", err);
+      alert("Đổi ảnh thất bại. Vui lòng thử lại.");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
 
   // Handle Cancel  
   const handleCancel = () => {
@@ -121,14 +233,145 @@ export default function RoomTypeDetail() {
     // fetchRoomDetails(); // Uncomment nếu muốn reload lại dữ liệu từ API
   };
 
-  // Handle Delete
-  const handleDelete = () => {
-    console.log("Deleting Room Type:", roomType.id);
-    // Thực hiện logic để xóa loại phòng, ví dụ gọi API DELETE
+  const handleRemoveOtherPhoto = async (photo) => {
+    const ok = window.confirm("Bạn có chắc muốn xóa ảnh không?");
+    if (!ok) return;
+
+    // Xóa ảnh local (preview)
+    if (String(photo.id).startsWith("local-")) {
+      setExtraFiles((prev) => prev.filter((x) => `local-${x.url}` !== photo.id));
+      return;
+    }
+
+    // Xóa ảnh server (gọi API)
+    try {
+      await deleteRoomPhoto(photo.id);
+      setRoomPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    } catch (err) {
+      console.error("Delete other photo failed:", err);
+      alert("Xóa ảnh thất bại. Vui lòng thử lại.");
+    }
   };
 
+
+  const handleAddOtherPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    try {
+      // Gọi API để upload ảnh phụ
+      await uploadSubRoomPhoto(id, file);
+
+      // Sau khi upload thành công, reload lại danh sách ảnh (nếu cần)
+      const roomPhotosResponse = await getRoomPhotosByRoomTypeId(id);
+      setRoomPhotos(roomPhotosResponse.data.result || []);
+
+    } catch (err) {
+      console.error("Upload other photo failed:", err);
+      alert("Thêm ảnh phụ thất bại. Vui lòng thử lại.");
+    }
+
+    // reset input để chọn lại cùng file vẫn trigger
+    e.target.value = "";
+  };
+
+  const handleChangeOtherPhotoClick = (photo) => {
+    setEditingOtherId(photo.id);  // Để biết ảnh nào đang được chỉnh sửa
+
+    // Lấy ref của ảnh phụ (từng ảnh riêng biệt)
+    const fileInputRef = otherFileInputRefs.current[photo.id];
+
+    // Nếu có ref, mở hộp thoại chọn file
+    if (fileInputRef) {
+      fileInputRef.click(); // Gọi click() để mở hộp thoại chọn file
+    }
+  };
+
+
+  const handleDeleteMainPhoto = async (mainPhotoId) => {
+    const ok = window.confirm("Bạn có chắc muốn xóa ảnh chính không?");
+    if (!ok) return;
+
+    try {
+      await deleteRoomPhoto(mainPhotoId);
+
+      // ✅ cập nhật UI: bỏ ảnh vừa xóa ra khỏi state
+      setRoomPhotos((prev) => prev.filter((p) => p.id !== mainPhotoId));
+
+      // ✅ sau khi xóa -> bật chọn file để user set ảnh main mới
+      setSelectedFileURL("");
+      setIsEditingMainPhoto(true);
+    } catch (err) {
+      console.error("Delete main photo failed:", err);
+      alert("Xóa ảnh chính thất bại. Vui lòng thử lại.");
+    }
+  };
+
+    // Handle delete room
+  const handleDeleteRoom = async (roomId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this room?");
+    if (confirmed) {
+      try {
+        await deleteRoom(roomId); // Assuming you have a delete API
+        setRooms(rooms.filter((room) => room.roomId !== roomId)); // Remove from state
+      } catch (error) {
+        console.error("Error deleting room", error);
+      }
+    }
+  };
+
+
+  // Handle add new room
+  const handleAddRoom = () => {
+    // Navigate to the add room page
+    navigate("/admin/rooms/add");
+  };
+
+  const handleSaveRoom = async (formData, selectedRoom) => {
+    try {
+      const isNew = !selectedRoom?.roomId; // kiểm tra phòng mới hay cũ
+
+      console.log("selectedRoom", selectedRoom);
+
+      const roomRequest = {
+        roomNumber: formData.roomNumber,
+        description: formData.description,
+        roomTypeId: formData.roomTypeId,
+        status: formData.status || "Available", // mặc định Available
+      };
+
+      // ✅ Gửi JSON, không dùng FormData
+      const res = isNew
+        ? await createRoom(roomRequest) // POST /room
+        : await updateRoom(selectedRoom.roomId, roomRequest); // PUT /room/{id}
+
+      if (res.data.code !== 1000) {
+        return { error: res.data.message };
+      }
+
+      setSelectedRoom(null); // Reset selectedRoom
+      loadRooms(); // Reload danh sách phòng
+      return { success: true };
+    } catch (err) {
+      console.log("ERR:", err);
+
+      const code = err?.response?.data?.code;
+      const message = err?.response?.data?.message;
+
+      return {
+        error: message ? `Lỗi ${code}: ${message}` : "Lỗi kết nối server",
+      };
+    }
+  };
+
+
+
   return (
+    <>
     <div className="container mx-auto p-6">
+      
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
           {mode === "edit" ? "Edit Room Type" : "Room Type Details"}
@@ -232,99 +475,208 @@ export default function RoomTypeDetail() {
       <div className="bg-white shadow-md rounded-lg p-6 mt-6">
         <label className="block font-medium text-gray-600 mb-2">Room Photos</label>
 
-        {/* Room Photo for Main */}
-        {roomPhotos
-          .filter(photo => photo.isMain) // Lọc ảnh chính ra
-          .map((photo) => (
-            <div key={photo.id} className="relative w-1/3 mx-auto h-60 mb-4 border-4 border-yellow-500 rounded-lg">
-              {/* Hiển thị 'X' để xóa ảnh chính khi ở chế độ chỉnh sửa */}
-              {mode === "edit_img" && (
-                <button
-                  onClick={handleRemoveMainPhoto}
-                  className="absolute top-2 right-2 text-white bg-red-500 p-2 rounded-full hover:bg-red-600"
-                >
-                  X
-                </button>
-              )}
+        <input
+          ref={mainFileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleMainUpdateFileChange}
+          className="sr-only"
+        />
 
-              {/* Hiển thị ô chọn file nếu đang ở chế độ chỉnh sửa ảnh */}
-              {mode === "edit_img" && isEditingMainPhoto ? (
-                <input
-                  type="file"
-                  onChange={handleFileChange}
-                  className="w-full h-full object-cover rounded-lg"
-                />
+        {/* Main photo */}
+        {(() => {
+          const mainPhotos = roomPhotos.filter((p) => p.isMain);
+
+          if (mainPhotos.length === 0) {
+            return (
+              <div className="relative group w-1/3 mx-auto h-60 mb-6 border-4 border-yellow-500 rounded-lg overflow-hidden bg-white">
+                <label className="w-full h-full flex items-center justify-center cursor-pointer">
+                  <span className="text-5xl font-semibold text-gray-400 group-hover:text-blue-600 transition">+</span>
+                  <input
+                    ref={mainFileInputRef}  // Thêm ref cho ảnh chính
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMainFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            );
+          }
+
+          return mainPhotos.map((photo) => (
+            <div key={photo.id} className="relative group w-1/3 mx-auto h-60 mb-6 border-4 border-yellow-500 rounded-lg overflow-hidden">
+              {isEditingMainPhoto ? (
+                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                  <input
+                    ref={mainFileInputRef}  // Đảm bảo có ref cho ảnh chính
+                    type="file"
+                    accept="image/*"
+                    onChange={handleMainFileChange}
+                    className="sr-only"
+                  />
+                </div>
               ) : (
                 <img
-                  src={(selectedFileURL !== "")?selectedFileURL:`${API_BASE_URL}/${photo.photoUrl}`} // Hiển thị ảnh chính đã được cập nhật
+                  src={selectedFileURL || `${API_BASE_URL}/${photo.photoUrl}`}
                   alt="Main Room"
-                  className="w-full h-full object-cover rounded-lg"
+                  className="w-full h-full object-cover"
+                  onClick={() => {setPhotoPreview(`${API_BASE_URL}/${photo.photoUrl}`), setIsPhotoModalOpen(true)}}
                 />
               )}
-            </div>
-          ))}
 
+              {!isEditingMainPhoto && (
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteMainPhoto(photo.id)}
+                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Xóa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = mainFileInputRef.current;
+                      if (el) el.click();  // Hiển thị hộp thoại chọn file
+                    }}
+                    className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Đổi ảnh chính
+                  </button>
+                </div>
+              )}
+            </div>
+          ));
+        })()}
 
         {/* Room Photos for others */}
-        <div className="flex justify-start space-x-4">
-          {roomPhotos
-            .filter(photo => !photo.isMain) // Lọc các ảnh còn lại
-            .map((photo) => (
-              <div key={photo.id} className="w-40 h-32">
-                <img
-                  src={`${API_BASE_URL}/${photo.photoUrl}`}
-                  alt="Room"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              </div>
-            ))}
-        </div>
+        {(() => {
+          const serverOthers = roomPhotos.filter((p) => !p.isMain);
+          const previews = extraFiles.map((x) => ({ id: `local-${x.url}`, photoUrl: x.url, isLocal: true }));
+          const combined = [...serverOthers, ...previews].slice(0, 9);
+          const missing = 9 - combined.length;
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
-          {mode === "edit_img" ? (
-            <>
-              <button
-                onClick={handleSave}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700"
-              >
-                Save
-              </button>
-              <button
-                onClick={handleCancel}
-                className="px-6 py-3 bg-gray-400 text-white rounded-lg shadow-md hover:bg-gray-500"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setMode("edit_img")}
-              className="px-6 py-3 bg-yellow-500 text-white rounded-lg shadow-md hover:bg-yellow-600"
-            >
-              Edit
-            </button>
-          )}
-        </div>
+          return (
+            <div className="grid grid-cols-3 md:grid-cols-9 gap-3">
+              {combined.map((p) => (
+                <div key={p.id} className="relative group w-24 h-24 rounded-lg overflow-hidden border bg-gray-50">
+                  {editingOtherId === p.id ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                      <input
+                        ref={(el) => (otherFileInputRefs.current[p.id] = el)}  // Thêm ref cho từng ảnh phụ
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleOtherFileChange(p.id, e)}
+                        className="block w-full text-xs"
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={otherPreviewMap[p.id] || `${API_BASE_URL}/${p.photoUrl}`}
+                      alt="Room"
+                      onClick={() => {setPhotoPreview(`${API_BASE_URL}/${p.photoUrl}`), setIsPhotoModalOpen(true)}}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+
+                  {editingOtherId !== p.id && (
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOtherPhoto(p)}
+                        className="px-1.5 py-0.5 text-[10px] bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Xóa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleChangeOtherPhotoClick(p)}  // Thêm click vào "Đổi"
+                        className="px-1.5 py-0.5 text-[10px] bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Đổi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {Array.from({ length: missing }).map((_, idx) => (
+                <label
+                  key={`empty-${idx}`}
+                  className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 bg-white flex items-center justify-center cursor-pointer hover:border-blue-500 hover:text-blue-600 transition"
+                  title="Thêm ảnh"
+                >
+                  <span className="text-2xl font-semibold">+</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAddOtherPhoto}
+                    className="hidden"
+                  />
+                </label>
+              ))}
+            </div>
+          );
+        })()}
+
+
       </div>
-
 
 
       {/* Rooms List */}
       <div className="bg-white shadow-md rounded-lg p-6 mt-6">
-        <label className="block font-medium text-gray-600 mb-2">Rooms List</label>
-        <div className="space-y-4">
-          {rooms.map((room) => (
-            <div key={room.roomId} className="p-4 border-b">
-              <p className="text-lg font-semibold">Room {room.roomNumber}</p>
-              <p className="text-gray-600">{room.description}</p>
-              <p className={`text-sm ${room.status === "Available" ? "text-green-600" : "text-red-600"}`}>
-                {room.status}
-              </p>
-            </div>
-          ))}
-        </div>
+        <div className="flex justify-between items-center mb-4">
+          <label className="block font-medium text-gray-600 mb-2">Rooms List</label>
+          <button
+            onClick={() => setSelectedRoom({ ...null })}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700"
+          >
+            Add Room
+          </button>
+        </div>   
+
+        {isLoading ? (
+          <p>Loading rooms...</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-auto border-collapse">
+              <thead className=" text-black">
+                <tr>
+                  <th className="px-6 py-3 border-b text-left">Room Number</th>
+                  <th className="px-6 py-3 border-b text-left">Description</th>
+                  <th className="px-6 py-3 border-b text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.map((room) => (
+                  <tr key={room.roomId} className="hover:bg-gray-100">
+                    <td className="px-6 py-4 border-b">{room.roomNumber}</td>
+                    <td className="px-6 py-4 border-b">{room.description}</td>
+                    <td className="px-6 py-4 border-b text-center">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => setSelectedRoom({ ...room })}
+                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRoom(room.roomId)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-4 mt-6">
@@ -346,7 +698,6 @@ export default function RoomTypeDetail() {
               Edit
             </button>
             <button
-              onClick={handleDelete}
               className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700"
             >
               Delete
@@ -360,6 +711,43 @@ export default function RoomTypeDetail() {
           Back to List
         </button>
       </div>
+
     </div>
+
+      {selectedRoom && (
+        <RoomModal
+          room={selectedRoom}
+          roomType={roomType}
+          onClose={() => setSelectedRoom(null)}
+          onSave={handleSaveRoom}
+        />
+      )}    
+
+      {/* Fullscreen Photo Modal */}
+      {isPhotoModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"
+          onClick={() => setIsPhotoModalOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-3xl font-bold z-50"
+            onClick={() => setIsPhotoModalOpen(false)}
+          >
+            &times;
+          </button>
+          <img
+            src={
+                  photoPreview && (photoPreview.startsWith("http") || photoPreview.startsWith("blob:"))
+                    ? photoPreview
+                    : API_BASE_URL + "/" + photoPreview
+                }
+            alt="Chi nhánh"
+            className="max-h-[90%] max-w-[90%] object-contain rounded-lg border"
+          />
+        </div>
+      )}
+
+    </>
+
   );
 }
