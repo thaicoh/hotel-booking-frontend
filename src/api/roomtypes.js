@@ -29,3 +29,14 @@ export const getRoomTypeDetails = (id) => {
 export const updateBasicInfo = (roomTypeId, data) => {
   return axiosInstance.put(`${API_BASE_URL}/room_type/${roomTypeId}`, data);
 };
+
+
+// ===============================
+// 📌 Tạo Room Type mới (chỉ thông tin cơ bản)
+// POST /room_type
+// ===============================
+export const createRoomType = (data) => {
+  return axiosInstance.post(`${API_BASE_URL}/room_type`, data, {
+    headers: { "Content-Type": "application/json" },
+  });
+};

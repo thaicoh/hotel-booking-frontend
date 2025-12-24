@@ -53,3 +53,12 @@ export const getBranchesPaging = (page = 0, size = 10, search = "") => {
     params: { page, size, search },
   });
 };
+
+// ===============================
+// 📌 Cập nhật trạng thái branch (ACTIVE / MAINTENANCE)
+// ===============================
+export const updateBranchStatus = (branchId, status) => {
+  return axiosInstance.put(`${API_BASE_URL}/branch/${branchId}/status`, null, {
+    params: { status }, // truyền status qua query param
+  });
+};

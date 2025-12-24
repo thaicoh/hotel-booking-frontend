@@ -3,7 +3,8 @@ import {
   getBranches,
   createBranch,
   updateBranch,
-  getBranchesPaging
+  getBranchesPaging,
+  updateBranchStatus 
 } from "../../api/branches";
 
 import { API_BASE_URL } from "../../config/api";
@@ -26,7 +27,11 @@ export default function ManageBranches() {
   const [loading, setLoading] = useState(true);
 
   const [showConfirm, setShowConfirm] = useState(false);
-  const [branchToDelete, setBranchToDelete] = useState(null);
+
+const [showConfirmStatus, setShowConfirmStatus] = useState(false);
+const [pendingBranch, setPendingBranch] = useState(null);
+const [pendingStatus, setPendingStatus] = useState(null);
+
 
   const loadBranches = async () => {
     try {
@@ -113,6 +118,15 @@ export default function ManageBranches() {
     }
   };
 
+  const handleUpdateBranchStatus = async (branchId, newStatus) => {
+    try {
+      await updateBranchStatus(branchId, newStatus);
+      loadBranches(); // reload danh sách
+    } catch (err) {
+      console.error("Update status failed:", err);
+      alert("Không thể cập nhật trạng thái chi nhánh");
+    }
+  };
   
 
   useEffect(() => {
@@ -162,6 +176,7 @@ export default function ManageBranches() {
                 <th className="p-3 border">SĐT</th>
                 <th className="p-3 border">Ngày tạo</th>
                 <th className="p-3 border">Ảnh</th>
+                <th className="p-3 border">Trạng thái</th>
                 <th className="p-3 border">Hành động</th>
               </tr>
             </thead>
@@ -189,6 +204,19 @@ export default function ManageBranches() {
                       "—"
                     )}
                   </td>
+
+                  <td className="p-3 border">
+                    {b.status === "ACTIVE" ? (
+                      <span className="px-2 py-1 bg-green-200 text-green-800 rounded">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded">
+                        Maintenance
+                      </span>
+                    )}
+                  </td>
+
                   <td className="p-3 border">
                     <button
                       className="px-3 py-1 bg-blue-500 text-white rounded mr-2"
@@ -205,15 +233,23 @@ export default function ManageBranches() {
                       Edit
                     </button>
 
+
                     <button
-                      className="px-3 py-1 bg-red-500 text-white rounded"
+                      className={`px-3 py-1 rounded ${
+                        b.status === "ACTIVE"
+                          ? "bg-orange-500 text-white"
+                          : "bg-green-600 text-white"
+                      }`}
                       onClick={() => {
-                        setBranchToDelete(b);
-                        setShowConfirm(true);
+                        const newStatus = b.status === "ACTIVE" ? "MAINTENANCE" : "ACTIVE";
+                        setPendingBranch(b);
+                        setPendingStatus(newStatus);
+                        setShowConfirmStatus(true);
                       }}
                     >
-                      Delete
+                      {b.status === "ACTIVE" ? "Set Maintenance" : "Set Active"}
                     </button>
+
                   </td>
                 </tr>
               ))}
@@ -269,6 +305,18 @@ export default function ManageBranches() {
           onConfirm={handleDeleteBranch}
         />
       )}
+
+      {showConfirmStatus && pendingBranch && (
+        <ConfirmModal
+          title="Xác nhận thay đổi trạng thái"
+          message={`Bạn có chắc muốn chuyển chi nhánh "${pendingBranch.branchName}" sang trạng thái ${pendingStatus}?`}
+          onCancel={() => setShowConfirmStatus(false)}
+          onConfirm={() => {
+            handleUpdateBranchStatus(pendingBranch.id, pendingStatus);
+            setShowConfirmStatus(false);
+          }}
+        />
+      )}   
     </div>
   );
 }

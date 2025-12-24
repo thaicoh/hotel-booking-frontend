@@ -10,6 +10,7 @@ import Home from "./pages/customer/Home";
 import RoomList from "./pages/customer/RoomList";
 import RoomDetail from "./pages/customer/RoomDetail";
 import Booking from "./pages/customer/Booking";
+import SearchPage from "./pages/customer/SearchPage";
 import Profile from "./pages/customer/Profile";
 import Login from "./pages/customer/Login";
 import Register from "./pages/customer/Register";
@@ -58,24 +59,41 @@ export default function App() {
         {/* ✅ CUSTOMER ROUTES */}
         <Route element={<CustomerLayout />}>
           <Route index element={<Home />} />
-          <Route path="/rooms" element={<RoomList />} />
-          <Route path="/rooms/:id" element={<RoomDetail />} />
-          <Route path="/booking" element={<Booking />} />
-          <Route path="/profile" element={<CustomerRoute><Profile /></CustomerRoute>} />
+          <Route path="rooms" element={<RoomList />} />
+          <Route path="rooms/:id" element={<RoomDetail />} />
+          <Route path="booking" element={<Booking />} />
+          <Route
+            path="profile"
+            element={
+              <CustomerRoute>
+                <Profile />
+              </CustomerRoute>
+            }
+          />
+
+          {/* 🔍 Search Page */}
+          <Route path="search" element={<SearchPage />} />
+
 
           {/* Auth */}
-          <Route path="/login" element={
-            <GuestRoute>
-              <Login />
-            </GuestRoute>
-          } />
-
-          <Route path="/register" element={
-            <GuestRoute>
-              <Register />
-            </GuestRoute>
-          } />
+          <Route
+            path="login"
+            element={
+              <GuestRoute>
+                <Login />
+              </GuestRoute>
+            }
+          />
+          <Route
+            path="register"
+            element={
+              <GuestRoute>
+                <Register />
+              </GuestRoute>
+            }
+          />
         </Route>
+
 
         {/* ✅ STAFF ROUTES */}
         <Route

@@ -3,6 +3,13 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { getRoomTypeDetails, updateBasicInfo  } from "../../api/roomtypes"; // Import hàm từ roomtypes.js
 import RoomModal from "../../components/admin/RoomModal";
 
+import {
+  getPricesByRoomTypeId,
+  createRoomTypeBookingTypePrice,
+  updateRoomTypeBookingTypePrice,
+  deleteRoomTypeBookingTypePrice,
+} from "../../api/roomTypeBookingTypePrices";
+
 
 import {
   getRoomPhotosByRoomTypeId,
@@ -40,6 +47,8 @@ export default function RoomTypeDetail() {
 
   const [selectedRoom, setSelectedRoom] = useState(null);
 
+  const [editingRowData, setEditingRowData] = useState(null);
+
 
   const mainFileInputRef = useRef(null);
   // Thêm ref vào từng ảnh phụ
@@ -51,26 +60,69 @@ export default function RoomTypeDetail() {
 
 
 
+  const BOOKING_TYPES = [
+    { key: "DAY", label: "Ngày", bookingTypeId: 1 },
+    { key: "NIGHT", label: "Đêm", bookingTypeId: 3 },
+    { key: "HOUR", label: "Giờ", bookingTypeId: 2 },
+  ];
+
+  const [priceRows, setPriceRows] = useState(
+    BOOKING_TYPES.map((t) => ({
+      bookingType: t.key,
+      price: "",
+      weekendSurcharge: "",
+      additionalHourPrice: "",
+    }))
+  );
+
+  const [editingKey, setEditingKey] = useState(null);
+
+
+  // Hàm load lại giá từ API
+  const loadPrices = async () => {
+    try {
+      const pricesRes = await getPricesByRoomTypeId(id);
+      const priceList = pricesRes?.data?.result || [];
+
+      setPriceRows(
+        BOOKING_TYPES.map((t) => {
+          const found = priceList.find((x) => x.bookingTypeId === t.bookingTypeId);
+          return {
+            bookingType: t.key,
+            id: found?.id ?? null,
+            bookingTypeId: t.bookingTypeId,
+            price: found?.price ?? "",
+            weekendSurcharge: found?.weekendSurcharge ?? "",
+            additionalHourPrice: found?.additionalHourPrice ?? "",
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Error loading prices", err);
+    }
+  };
+
+
   // Fetch RoomType data from API
   useEffect(() => {
     const fetchRoomDetails = async () => {
       try {
-        const response = await getRoomTypeDetails(id); // Gọi API lấy chi tiết phòng
+        const response = await getRoomTypeDetails(id);
         setRoomType(response.data.result);
         setMode(location.search.includes("mode=edit") ? "edit" : "view");
 
-        // Fetch room photos
         const roomPhotosResponse = await getRoomPhotosByRoomTypeId(id);
-        setRoomPhotos(roomPhotosResponse.data.result); // Set ảnh phòng vào state
+        setRoomPhotos(roomPhotosResponse.data.result);
 
-        // Fetch rooms by roomTypeId
         const roomsResponse = await getRoomsByRoomTypeId(id);
-        setRooms(roomsResponse.data.result); // Set danh sách phòng vào state
+        setRooms(roomsResponse.data.result);
 
-        // Fetch branches for dropdown
+        // ✅ gọi loadPrices thay vì viết lại logic
+        await loadPrices();
+
         const branchesResponse = await getBranches();
         setBranches(branchesResponse.data.result);
-        setSelectedBranch(response.data.result.branch.id); // Set chi nhánh mặc định là chi nhánh của phòng
+        setSelectedBranch(response.data.result.branch.id);
       } catch (error) {
         console.error("Error fetching room type details", error);
       } finally {
@@ -78,13 +130,14 @@ export default function RoomTypeDetail() {
       }
     };
 
-
     fetchRoomDetails();
   }, [id, location.search]);
 
   if (isLoading) {
     return <p>Loading...</p>;
   }
+
+
 
   const loadRooms = async () => {
     try {
@@ -323,12 +376,6 @@ export default function RoomTypeDetail() {
   };
 
 
-  // Handle add new room
-  const handleAddRoom = () => {
-    // Navigate to the add room page
-    navigate("/admin/rooms/add");
-  };
-
   const handleSaveRoom = async (formData, selectedRoom) => {
     try {
       const isNew = !selectedRoom?.roomId; // kiểm tra phòng mới hay cũ
@@ -357,15 +404,87 @@ export default function RoomTypeDetail() {
     } catch (err) {
       console.log("ERR:", err);
 
-      const code = err?.response?.data?.code;
-      const message = err?.response?.data?.message;
+      const code = err?.data?.code;
+      const message = err?.data?.message;
 
       return {
         error: message ? `Lỗi ${code}: ${message}` : "Lỗi kết nối server",
       };
+
     }
   };
 
+  const handlePriceRowChange = (bookingType, field, value) => {
+    // Chuyển giá trị nhập vào thành giá trị số nguyên không có dấu phân cách
+    const parsedValue = parseVND(value);
+
+    setPriceRows((prev) =>
+      prev.map((row) =>
+        row.bookingType === bookingType ? { ...row, [field]: parsedValue } : row
+      )
+    );
+  };
+
+  const formatVND = (value) => {
+    if (value === null || value === undefined || value === "") return "Chưa có giá trị";
+    const num = Number(value);
+    if (isNaN(num)) return "Không hợp lệ";
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(num);
+  };
+
+  const parseVND = (val) => {
+    if (val === null || val === undefined) return "";
+    return String(val).replace(/\D/g, ""); // Loại bỏ tất cả ký tự không phải số
+  };
+
+  const handleSavePriceRow = async (bookingTypeKey) => {
+    try {
+      const bookingType = BOOKING_TYPES.find((t) => t.key === bookingTypeKey);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const payload = {
+        roomTypeId: id,
+        bookingTypeId: bookingType.bookingTypeId,
+        price: Number(editingRowData?.price) || 0,
+        currency: "VND",
+        effectiveDate: today,
+        isActive: true,
+        weekendSurcharge: Number(editingRowData?.weekendSurcharge) || 0,
+        additionalHourPrice: Number(editingRowData?.additionalHourPrice) || 0,
+        maxHours: 4,
+      };
+
+      if (!editingRowData?.id) {
+        await createRoomTypeBookingTypePrice(payload);
+      } else {
+        await updateRoomTypeBookingTypePrice(editingRowData.id, payload);
+      }
+
+      await loadPrices();
+      setEditingKey(null);
+      setEditingRowData(null);
+    } catch (err) {
+      console.error("Save price failed:", err);
+      alert("Có lỗi xảy ra khi lưu giá");
+    }
+  };
+
+  const handleCancelEdit = async () => {
+    setEditingKey(null);
+    setEditingRowData(null);
+
+    await loadPrices(); // gọi lại API để lấy dữ liệu gốc
+  };
+
+  const handleEditRow = (tKey) => {
+    const row = priceRows.find((r) => r.bookingType === tKey);
+    setEditingKey(tKey);
+    setEditingRowData({ ...row }); // copy dữ liệu gốc
+  };
 
 
   return (
@@ -639,7 +758,7 @@ export default function RoomTypeDetail() {
         {isLoading ? (
           <p>Loading rooms...</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto border rounded-lg">
             <table className="min-w-full table-auto border-collapse">
               <thead className=" text-black">
                 <tr>
@@ -677,33 +796,142 @@ export default function RoomTypeDetail() {
         )}
       </div>
 
+      {/* Price Table */}
+      <div className="bg-white shadow-md rounded-lg p-6 mt-6">
+        <div className="flex justify-between items-center mb-4">
+          <label className="block font-medium text-gray-600 mb-2">Giá</label>
+        </div>
+
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="min-w-full table-auto border-collapse">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 border-b text-left">Loại đặt phòng</th>
+                <th className="px-4 py-3 border-b text-left">Giá</th>
+                <th className="px-4 py-3 border-b text-left">Weekend Surcharge</th>
+                <th className="px-4 py-3 border-b text-left">Additional Hour Price</th>
+                <th className="px-4 py-3 border-b text-left">Actions</th>
+
+              </tr>
+            </thead>
+
+            <tbody>
+              {BOOKING_TYPES.map((t) => {
+                const row = priceRows.find((r) => r.bookingType === t.key);
+                const hasValue =
+                  row &&
+                  [row.price, row.weekendSurcharge, row.additionalHourPrice].some(
+                    (v) => v !== null && v !== undefined && v !== ""
+                  );
+
+                const isEditingRow = editingKey === t.key;
+
+                console.log("t.key:", t.key); // in ra key của từng loại
+
+
+                return (
+                  <tr key={t.key} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 border-b font-medium">{t.label}</td>
+
+                    <td className="px-4 py-3 border-b">
+                      {isEditingRow ? (
+                        <input
+                          type="number"
+                          value={editingRowData?.price || ""}
+                          onChange={(e) =>
+                            setEditingRowData({ ...editingRowData, price: e.target.value })
+                          }
+                          className="border p-2 rounded w-full"
+                        />
+                      ) : (
+                        formatVND(row?.price) || "Chưa có giá trị"
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 border-b">
+                      {isEditingRow ? (
+                        <input
+                          type="number"
+                          value={editingRowData?.weekendSurcharge || ""}
+                          onChange={(e) =>
+                            setEditingRowData({
+                              ...editingRowData,
+                              weekendSurcharge: e.target.value,
+                            })
+                          }
+                          className="border p-2 rounded w-full"
+                        />
+                      ) : (
+                        formatVND(row?.weekendSurcharge) || "Chưa có giá trị"
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3 border-b">
+                      {isEditingRow ? (
+                        <input
+                          type="number"
+                          value={editingRowData?.additionalHourPrice || ""}
+                          onChange={(e) =>
+                            setEditingRowData({
+                              ...editingRowData,
+                              additionalHourPrice: e.target.value,
+                            })
+                          }
+                          className="border p-2 rounded w-full"
+                        />
+                      ) : (
+                        formatVND(row?.additionalHourPrice) || "Chưa có giá trị"
+                      )}
+                    </td>
+
+
+                    <td className="px-4 py-3 border-b text-center">
+                      <div className="flex gap-2 justify-center">
+                        {isEditingRow ? (
+                          <>
+                            <button
+                              onClick={() => handleSavePriceRow(t.key)}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => handleCancelEdit()}
+                              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : hasValue ? (
+                          <button
+                            onClick={() => handleEditRow(t.key)}
+                            className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                          >
+                            Edit
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEditRow(t.key)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                          >
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+
+
+          </table>
+        </div>
+      </div>
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-4 mt-6">
-        {mode === "edit" ? (
-          <>
-            <button onClick={handleSave} className="px-6 py-3 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700">
-              Save
-            </button>
-            <button onClick={handleCancel} className="px-6 py-3 bg-gray-400 text-white rounded-lg shadow-md hover:bg-gray-500">
-              Cancel
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={() => navigate(`/admin/room-types/${roomType.id}?mode=edit`)}
-              className="px-6 py-3 bg-yellow-500 text-white rounded-lg shadow-md hover:bg-yellow-600"
-            >
-              Edit
-            </button>
-            <button
-              className="px-6 py-3 bg-red-600 text-white rounded-lg shadow-md hover:bg-red-700"
-            >
-              Delete
-            </button>
-          </>
-        )}
+        
         <button
           onClick={() => navigate("/admin/roomtypes")}
           className="px-6 py-3 bg-gray-300 text-black rounded-lg shadow-md hover:bg-gray-400"
