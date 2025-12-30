@@ -1,3 +1,5 @@
+import React, { useState } from "react";
+
 import { useContext, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +8,13 @@ import SearchBar from "../../components/customer/SearchBar";
 export default function Home() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  // mặc định là theo giờ
+  const [bookingType, setBookingType] = useState("hourly");
+  const [checkInTime, setCheckInTime] = useState("");
+  const [duration, setDuration] = useState("");
+
+
 
   useEffect(() => {
     if (user && user.roles?.includes("ADMIN")) {
@@ -81,4 +90,6 @@ export default function Home() {
 
     </div>
   );
+
+  
 }

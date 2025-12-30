@@ -1,5 +1,4 @@
 import HotelCard from "../../components/customer/HotelCard";
-
 import PriceRangeSlider from "../../components/customer/PriceRangeSlider";
 
 
