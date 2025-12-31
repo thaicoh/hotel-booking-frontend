@@ -1,10 +1,20 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import DailyBookingPicker from "./DailyBookingPicker";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
 
 const SearchBar = () => {
+
+  const navigate = useNavigate();
+
+  const mapBookingTypeCode = (type) => {
+    if (type === "hourly") return "HOUR";
+    if (type === "overnight") return "NIGHT";
+    return "DAY";
+  };
+
   const [bookingType, setBookingType] = useState("hourly"); // mặc định theo giờ
   const [location, setLocation] = useState("");
   const [checkInTime, setCheckInTime] = useState("");
@@ -55,13 +65,48 @@ const SearchBar = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Tìm kiếm với thông tin: ", {
-      bookingType,
-      location,
-      checkInDate,
-      checkOutDate,
-    });
+
+    const bookingTypeCode = mapBookingTypeCode(bookingType);
+
+    const params = new URLSearchParams();
+
+    // common
+    if (bookingTypeCode) params.set("bookingTypeCode", bookingTypeCode);
+    if (location?.trim()) params.set("location", location.trim());
+
+    // booking-type specific
+    if (bookingType === "hourly") {
+      if (checkInDate) params.set("checkInDate", checkInDate); // YYYY-MM-DD
+      if (checkInTime) params.set("checkInTime", checkInTime); // HH:mm
+      if (duration) params.set("hours", String(Number(duration)));
+    }
+
+    if (bookingType === "overnight") {
+      if (checkInDate) params.set("checkInDate", checkInDate);
+      // checkOutDate bạn auto set hôm sau
+      if (checkOutDate) params.set("checkOutDate", checkOutDate);
+    }
+
+    if (bookingType === "daily") {
+      if (checkInDate) params.set("checkInDate", checkInDate);
+      if (checkOutDate) params.set("checkOutDate", checkOutDate);
+    }
+
+    // (tuỳ chọn) minPrice/maxPrice nếu bạn có ở SearchBar
+    // if (minPrice) params.set("minPrice", String(minPrice));
+    // if (maxPrice) params.set("maxPrice", String(maxPrice));
+
+    navigate(`/search?${params.toString()}`);
   };
+
+
+
+  // gộp date + time => "YYYY-MM-DDTHH:mm:00"
+  const combineDateTime = (ymd, hhmm) => {
+    if (!ymd || !hhmm) return null;
+    return `${ymd}T${hhmm}:00`;
+  };
+
 
   return (
     <div className="relative z-10 -translate-y-16 md:-translate-y-24">

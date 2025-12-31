@@ -62,3 +62,7 @@ export const updateBranchStatus = (branchId, status) => {
     params: { status }, // truyền status qua query param
   });
 };
+
+export const searchHotels = (payload) => {
+  return axiosInstance.post("/branch/search-hotels", payload);
+};
