@@ -66,3 +66,15 @@ export const updateBranchStatus = (branchId, status) => {
 export const searchHotels = (payload) => {
   return axiosInstance.post("/branch/search-hotels", payload);
 };
+
+
+// ===============================
+// 📌 Lấy chi tiết hotel theo branchId + thông tin booking
+// ===============================
+export const getHotelDetailWithBooking = (branchId, payload) => {
+  // payload có thể gồm: bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours, minPrice, maxPrice
+  return axiosInstance.post(`${API_BASE_URL}/branch/${branchId}/hotel-detail`, {
+    branchId,
+    ...payload,
+  });
+};

@@ -54,13 +54,23 @@ const SearchBar = () => {
   const [checkInDate, setCheckInDate] = useState("");   // "YYYY-MM-DD"
   const [checkOutDate, setCheckOutDate] = useState(""); // "YYYY-MM-DD"
 
-  // render thông tin
-  const showDate = (s) => s || "Bất kỳ";
 
 
+  // Định nghĩa hàm ở đầu file SearchBar.jsx
+  const formatLocalDateTime = (date) => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) return "";
+    
+    const pad = (n) => String(n).padStart(2, "0");
 
-  const formatDate = (date) =>
-    date instanceof Date ? date.toLocaleDateString("vi-VN") : "Bất kỳ";
+    const y = date.getFullYear();
+    const m = pad(date.getMonth() + 1);
+    const d = pad(date.getDate());
+    const h = pad(date.getHours());
+    const min = pad(date.getMinutes());
+    const s = pad(date.getSeconds());
+
+    return `${y}-${m}-${d}T${h}:${min}:${s}`;
+  };
 
 
   const handleSubmit = (e) => {
@@ -74,22 +84,46 @@ const SearchBar = () => {
     if (bookingTypeCode) params.set("bookingTypeCode", bookingTypeCode);
     if (location?.trim()) params.set("location", location.trim());
 
-    // booking-type specific
     if (bookingType === "hourly") {
-      if (checkInDate) params.set("checkInDate", checkInDate); // YYYY-MM-DD
-      if (checkInTime) params.set("checkInTime", checkInTime); // HH:mm
+      if (checkInDate && checkInTime) {
+        // Ghép ngày + giờ thành LocalDateTime
+        const checkInStr = `${checkInDate}T${checkInTime}:00`;
+        params.set("checkInDate", checkInStr); // full datetime
+        params.set("checkInTime", checkInTime); // giờ riêng
+      }
       if (duration) params.set("hours", String(Number(duration)));
     }
 
     if (bookingType === "overnight") {
-      if (checkInDate) params.set("checkInDate", checkInDate);
-      // checkOutDate bạn auto set hôm sau
-      if (checkOutDate) params.set("checkOutDate", checkOutDate);
+      if (checkInDate) {
+        // lấy phần ngày (YYYY-MM-DD)
+        const onlyDate = checkInDate.split("T")[0];
+
+        // check-in: 21:00 cùng ngày
+        const checkInObj = new Date(`${onlyDate}T21:00:00`);
+        params.set("checkInDate", formatLocalDateTime(checkInObj));
+
+        // check-out: 12:00 hôm sau
+        const nextDay = getNextDay(onlyDate); // hàm bạn đã có
+        const checkOutObj = new Date(`${nextDay}T12:00:00`);
+        params.set("checkOutDate", formatLocalDateTime(checkOutObj));
+      }
     }
 
     if (bookingType === "daily") {
-      if (checkInDate) params.set("checkInDate", checkInDate);
-      if (checkOutDate) params.set("checkOutDate", checkOutDate);
+      if (checkInDate) {
+        const onlyDateIn = checkInDate.split("T")[0];
+        // check-in: 14:00 cùng ngày
+        const checkInObj = new Date(`${onlyDateIn}T14:00:00`);
+        params.set("checkInDate", formatLocalDateTime(checkInObj));
+      }
+
+      if (checkOutDate) {
+        const onlyDateOut = checkOutDate.split("T")[0];
+        // check-out: 12:00 ngày checkOut
+        const checkOutObj = new Date(`${onlyDateOut}T12:00:00`);
+        params.set("checkOutDate", formatLocalDateTime(checkOutObj));
+      }
     }
 
     // (tuỳ chọn) minPrice/maxPrice nếu bạn có ở SearchBar
@@ -210,9 +244,8 @@ const SearchBar = () => {
                   >
                     <option value="">Chọn giờ nhận phòng</option>
                     {[
-                      "08:00","09:00","10:00","11:00","12:00",
                       "13:00","14:00","15:00","16:00","17:00",
-                      "18:00","19:00","20:00","21:00","22:00",
+                      "18:00","19:00","20:00"
                     ].map((time) => (
                       <option key={time} value={time}>{time}</option>
                     ))}

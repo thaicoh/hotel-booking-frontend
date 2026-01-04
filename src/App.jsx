@@ -14,6 +14,8 @@ import SearchPage from "./pages/customer/SearchPage";
 import Profile from "./pages/customer/Profile";
 import Login from "./pages/customer/Login";
 import Register from "./pages/customer/Register";
+import HotelDetail from "./pages/customer/HotelDetail";
+import CheckoutPage from "./pages/customer/CheckoutPage";
 
 // ✅ Staff pages
 import StaffDashboard from "./pages/staff/StaffDashboard";
@@ -73,6 +75,10 @@ export default function App() {
 
           {/* 🔍 Search Page */}
           <Route path="search" element={<SearchPage />} />
+
+          <Route path="detail" element={<HotelDetail />} />
+
+          <Route path="checkout" element={<CheckoutPage />} />
 
 
           {/* Auth */}

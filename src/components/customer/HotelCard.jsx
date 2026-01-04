@@ -1,3 +1,5 @@
+import { useNavigate, useLocation } from "react-router-dom";
+
 export default function HotelCard({
   image,
   name,
@@ -7,20 +9,40 @@ export default function HotelCard({
   promo,
   price,
   rooms,
+  hotelId // Add hotelId as a prop
 }) {
+  const navigate = useNavigate(); // Initialize useNavigate hook
+  const location = useLocation(); // Initialize useLocation hook to get the current URL parameters
+
+  const handleClick = () => {
+    // Get the current query parameters from the location object
+    const queryParams = new URLSearchParams(location.search);
+
+    // Add the hotelId to the query parameters
+    queryParams.set("hotelId", hotelId);
+
+    // Navigate to the HotelDetail page, passing all query parameters
+    navigate(`/detail?${queryParams.toString()}`);
+  };
+
   return (
-    <div className="flex flex-col md:flex-row bg-white rounded-xl shadow-md overflow-hidden cursor-pointer mb-6">
+    <div
+      className="flex flex-col h-[240px] md:flex-row bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden cursor-pointer mb-6"
+      onClick={handleClick}
+
+
+    >
       {/* Hình ảnh */}
-      <div className="md:w-[238px] w-full h-[155px] md:h-[217px] relative">
+      <div className="md:w-[238px] w-full h-[240px] relative p-3">
         <img
           src={image}
           alt={name}
-          className="object-cover w-full h-full rounded-lg"
+          className="object-cover w-full h-full rounded-xl"
         />
       </div>
 
       {/* Nội dung */}
-      <div className="flex flex-col justify-between flex-1 px-6 py-4">
+        <div className="flex flex-col justify-between flex-1 px-6 py-4">
         {/* Thông tin chính */}
         <div className="space-y-3">
           {/* Tên khách sạn */}
@@ -63,7 +85,7 @@ export default function HotelCard({
         </div>
 
         {/* Giá và số phòng */}
-        <div className="mt-4 text-right space-y-1">
+        <div className="text-right space-y-1">
           <p className="text-sm text-gray-500">Giá cho 1 giờ</p>
           <p className="font-bold text-lg">Chỉ từ {price}</p>
           <p className="text-blue-600 font-semibold text-sm">
