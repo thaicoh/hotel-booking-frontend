@@ -37,3 +37,13 @@ export const getBookings = (filters) => {
   });
 };
 
+
+// ===============================
+// 📌 Tạo booking mới
+// ===============================
+export const createBooking = (payload) => {
+  // payload gồm: roomTypeId, bookingTypeCode, checkInDate, checkOutDate, hours,
+  // numberOfGuests, specialRequests, bookingSource, paymentMethod
+  return axiosInstance.post(`${API_BASE_URL}/bookings`, payload);
+};
+

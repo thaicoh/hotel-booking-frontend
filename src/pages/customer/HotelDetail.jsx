@@ -13,43 +13,45 @@ import RoomDetailModal from "../../components/customer/RoomDetailModal"
 
 export default function HotelDetail() {
 
-    const { search } = useLocation(); // Get the query parameters from the URL
-    const params = new URLSearchParams(search);
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    const hotelId = params.get("hotelId"); // Get the hotelId from the query
-    const checkInDate = params.get("checkInDate");
-    const checkOutDate = params.get("checkOutDate");
-    const bookingTypeCode = params.get("bookingTypeCode");
-    const checkInTime = params.get("checkInTime");
-    const hours = params.get("hours");
+    const hotelId = searchParams.get("hotelId");
+    const checkInDate = searchParams.get("checkInDate");
+    const checkOutDate = searchParams.get("checkOutDate");
+    const bookingTypeCode = searchParams.get("bookingTypeCode") || "HOUR";
+    const checkInTime = searchParams.get("checkInTime");
+    const hours = searchParams.get("hours");
+
+
+
 
     const buildCheckInOut = ({ bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours }) => {
-    if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
+        if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
 
-    // Helper: nếu chuỗi đã có 'T' thì coi như đã có giờ, không nối thêm
-    const appendTime = (dateStr, timeStr) => {
-        if (!dateStr) return null;
-        return dateStr.includes("T") ? dateStr : `${dateStr}T${timeStr}`;
-    };
+        // Helper: nếu chuỗi đã có 'T' thì coi như đã có giờ, không nối thêm
+        const appendTime = (dateStr, timeStr) => {
+            if (!dateStr) return null;
+            return dateStr.includes("T") ? dateStr : `${dateStr}T${timeStr}`;
+        };
 
-    if (bookingTypeCode === "HOUR") {
-        const checkIn = (checkInDate && checkInTime) ? appendTime(checkInDate, `${checkInTime}:00`) : null;
-        return { checkIn, checkOut: null, hours: hours ? Number(hours) : null };
-    }
+        if (bookingTypeCode === "HOUR") {
+            const checkIn = (checkInDate && checkInTime) ? appendTime(checkInDate, `${checkInTime}:00`) : null;
+            return { checkIn, checkOut: null, hours: hours ? Number(hours) : null };
+        }
 
-    if (bookingTypeCode === "NIGHT") {
-        const checkIn = appendTime(checkInDate, "21:00:00");
-        const checkOut = appendTime(checkOutDate, "12:00:00");
-        return { checkIn, checkOut, hours: null };
-    }
+        if (bookingTypeCode === "NIGHT") {
+            const checkIn = appendTime(checkInDate, "21:00:00");
+            const checkOut = appendTime(checkOutDate, "12:00:00");
+            return { checkIn, checkOut, hours: null };
+        }
 
-    if (bookingTypeCode === "DAY") {
-        const checkIn = appendTime(checkInDate, "14:00:00");
-        const checkOut = appendTime(checkOutDate, "12:00:00");
-        return { checkIn, checkOut, hours: null };
-    }
+        if (bookingTypeCode === "DAY") {
+            const checkIn = appendTime(checkInDate, "14:00:00");
+            const checkOut = appendTime(checkOutDate, "12:00:00");
+            return { checkIn, checkOut, hours: null };
+        }
 
-    return { checkIn: null, checkOut: null, hours: null };
+        return { checkIn: null, checkOut: null, hours: null };
     };
 
     const { checkIn, checkOut, hours: hoursNum } = buildCheckInOut({
@@ -136,12 +138,9 @@ export default function HotelDetail() {
     const [hotels, setHotels] = useState([]);
 
 
-
-    const [searchParams, setSearchParams] = useSearchParams();
-
-
     // --- Helpers ---
-    const toYMD = (d) => d.toISOString().split("T")[0];
+    const toYMD = (d) => toYMDLocal(d);
+
     const fromYMD = (s) => (s ? new Date(s) : null);
 
     const getNextDay = (dateStr) => {
@@ -169,60 +168,59 @@ export default function HotelDetail() {
 
     // --- Click đổi loại đặt phòng ---
     const handleChangeType = (code) => {
-    replaceParams((p) => {
-        p.set("bookingTypeCode", code);
+        replaceParams((p) => {
+            p.set("bookingTypeCode", code);
 
-        // reset các field không liên quan
-        if (code !== "HOUR") {
-        p.delete("checkInTime");
-        p.delete("hours");
-        }
-        if (code === "HOUR") {
-        p.delete("checkOutDate"); // giờ: không dùng checkout
-        }
-        if (code === "NIGHT") {
-        // đêm: checkout tự +1 ngày khi chọn checkin
-        if (p.get("checkInDate")) {
-            p.set("checkOutDate", getNextDay(p.get("checkInDate")));
-        } else {
-            p.delete("checkOutDate");
-        }
-        }
-    });
+            // reset các field không liên quan
+            if (code !== "HOUR") {
+
+            }
+
+            if (code === "HOUR") {
+                
+            }
+
+            if (code === "NIGHT") {
+            // đêm: checkout tự +1 ngày khi chọn checkin
+                if (p.get("checkInDate")) {
+                    p.set("checkOutDate", getNextDay(p.get("checkInDate")));
+                } else {
+                    p.delete("checkOutDate");
+                }
+            }
+
+            if (code === "DAY") {
+            // đêm: checkout tự +1 ngày khi chọn checkin
+                if (p.get("checkInDate")) {
+                    p.set("checkOutDate", getNextDay(p.get("checkInDate")));
+                } else {
+                    p.delete("checkOutDate");
+                }
+            }
+        });
     };
 
     // --- Chọn check-in (tùy loại) ---
     const handlePickCheckIn = (dateObj) => {
-    const ymd = dateObj ? toYMD(dateObj) : "";
-    replaceParams((p) => {
-        if (!ymd) {
-        p.delete("checkInDate");
-        p.delete("checkOutDate");
-        return;
-        }
+        const ymd = dateObj ? toYMD(dateObj) : "";
+        replaceParams((p) => {
+            if (!ymd) {
+            p.delete("checkInDate");
+            p.delete("checkOutDate");
+            return;
+            }
 
-        p.set("checkInDate", ymd);
+            p.set("checkInDate", ymd);
 
-        if (bookingTypeCode === "NIGHT") {
-        p.set("checkOutDate", getNextDay(ymd)); // auto +1
-        }
+            if (bookingTypeCode === "NIGHT") {
+            p.set("checkOutDate", getNextDay(ymd)); // auto +1
+            }
 
-        if (bookingTypeCode === "HOUR") {
-        p.delete("checkOutDate"); // giờ: không có checkout
-        }
-    });
+            if (bookingTypeCode === "HOUR") {
+            p.delete("checkOutDate"); // giờ: không có checkout
+            }
+        });
     };  
-
-    const minPrice = Number(searchParams.get("minPrice") || 20000);
-    const maxPrice = Number(searchParams.get("maxPrice") || 10000000);
-
-    const handlePriceChange = (newValues) => {
-    // newValues = [min, max]
-    replaceParams((p) => {
-        p.set("minPrice", String(newValues[0]));
-        p.set("maxPrice", String(newValues[1]));
-    });
-    };
 
 
     // Room detail modal 
@@ -230,45 +228,174 @@ export default function HotelDetail() {
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
 
     const handleViewRoomDetail = (room) => {
-    setSelectedRoom(room);
-    setIsRoomModalOpen(true);
+        setSelectedRoom(room);
+        setIsRoomModalOpen(true);
     };
 
     const closeRoomModal = () => {
-    setIsRoomModalOpen(false);
-    setSelectedRoom(null);
+        setIsRoomModalOpen(false);
+        setSelectedRoom(null);
     };
+
+    const HOURS_OPTIONS = ["13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"];
+
+    const pad2 = (n) => String(n).padStart(2, "0");
+
+    // YYYY-MM-DD theo local (KHÔNG dùng toISOString)
+    const toYMDLocal = (d) => {
+        const y = d.getFullYear();
+        const m = pad2(d.getMonth() + 1);
+        const day = pad2(d.getDate());
+        return `${y}-${m}-${day}`;
+    };
+
+    const addDaysYMD = (ymd, n) => {
+        const [y, m, d] = ymd.split("-").map(Number);
+        const dt = new Date(y, m - 1, d);
+        dt.setDate(dt.getDate() + n);
+        return toYMDLocal(dt);
+    };
+
+    const getDefaultHourTime = () => {
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // nếu qua 21h => ngày +1 và giờ đầu tiên
+        if (currentHour >= 21) {
+            return { dayOffset: 1, time: HOURS_OPTIONS[0] };
+        }
+
+        // tìm giờ tiếp theo có trong select
+        const nextHour = currentHour + 1;
+        const nextCandidate = `${pad2(nextHour)}:00`;
+        if (HOURS_OPTIONS.includes(nextCandidate)) {
+            return { dayOffset: 0, time: nextCandidate };
+        }
+
+        // nếu giờ tiếp theo không nằm trong list => chọn giờ đầu tiên
+        return { dayOffset: 0, time: HOURS_OPTIONS[0] };
+    };
+
 
 
     useEffect(() => {
-    const fetchHotel = async () => {
-        if (!hotelId || !bookingTypeCode) return;
+        const fetchHotel = async () => {
+            if (!hotelId || !bookingTypeCode) return;
 
-        try {
-        setLoading(true);
-        setError(null);
+            try {
+            setLoading(true);
+            setError(null);
 
-        const res = await getHotelDetailWithBooking(hotelId, payload);
-        // Giả định backend trả về { code, message, result }
-        const data = res.data?.result ?? res.data;
+            const res = await getHotelDetailWithBooking(hotelId, payload);
+            // Giả định backend trả về { code, message, result }
+            const data = res.data?.result ?? res.data;
 
-        console.log("👉 Kết quả API hotel-detail:", data); // log ra dữ liệu trả về
+            console.log("👉 Kết quả API hotel-detail:", data); // log ra dữ liệu trả về
 
-        setBranchDetail(data);
-        } catch (err) {
-        console.error("❌ Lỗi khi gọi API hotel-detail:", err);
-        setError(
-            err?.response?.data?.message ||
-            err.message ||
-            "Đã xảy ra lỗi khi tải dữ liệu khách sạn"
-        );
-        } finally {
-        setLoading(false);
-        }
-    };
+            setBranchDetail(data);
+            } catch (err) {
+            console.error("❌ Lỗi khi gọi API hotel-detail:", err);
+            setError(
+                err?.response?.data?.message ||
+                err.message ||
+                "Đã xảy ra lỗi khi tải dữ liệu khách sạn"
+            );
+            } finally {
+            setLoading(false);
+            }
+        };
 
-    fetchHotel();
+        fetchHotel();
     }, [hotelId, bookingTypeCode, checkIn, checkOut, hoursNum]);
+
+    useEffect(() => {
+            const p = new URLSearchParams(searchParams);
+            const code = p.get("bookingTypeCode") || "HOUR";
+            let shouldUpdate = false;
+
+            const today = new Date();
+            const todayYMD = toYMDLocal(today);
+
+            // 1. Xử lý logic cho Theo Giờ (HOUR)
+            if (code === "HOUR") {
+                // Nếu chưa có ngày -> set ngày mai (hoặc hôm nay tùy logic giờ)
+                if (!p.get("checkInDate")) {
+                    const { dayOffset } = getDefaultHourTime();
+                    const ymd = dayOffset ? addDaysYMD(todayYMD, 1) : todayYMD;
+                    p.set("checkInDate", ymd);
+                    shouldUpdate = true;
+                }
+                
+                // QUAN TRỌNG: Kiểm tra riêng checkInTime và hours
+                // Nếu thiếu checkInTime -> set default
+                if (!p.get("checkInTime")) {
+                    const { time } = getDefaultHourTime();
+                    p.set("checkInTime", time);
+                    shouldUpdate = true;
+                }
+
+                // Nếu thiếu hours -> set default là 1
+                if (!p.get("hours")) {
+                    p.set("hours", "1");
+                    shouldUpdate = true;
+                }
+
+                // HOUR thì không cần checkOutDate -> xóa đi cho sạch URL
+                if (p.get("checkOutDate")) {
+                    p.delete("checkOutDate");
+                    shouldUpdate = true;
+                }
+            }
+
+            // 2. Xử lý logic cho Qua Đêm (NIGHT)
+            if (code === "NIGHT") {
+                if (!p.get("checkInDate")) {
+                    p.set("checkInDate", todayYMD);
+                    shouldUpdate = true;
+                }
+                // NIGHT luôn tự động tính checkout = checkin + 1 ngày
+                const currentCheckIn = p.get("checkInDate");
+                const expectedCheckOut = getNextDay(currentCheckIn);
+                
+                if (p.get("checkOutDate") !== expectedCheckOut) {
+                    p.set("checkOutDate", expectedCheckOut);
+                    shouldUpdate = true;
+                }
+
+                // Xóa các param thừa của Hour
+                if (p.get("checkInTime") || p.get("hours")) {
+                    p.delete("checkInTime");
+                    p.delete("hours");
+                    shouldUpdate = true;
+                }
+            }
+
+            // 3. Xử lý logic cho Theo Ngày (DAY)
+            if (code === "DAY") {
+                if (!p.get("checkInDate")) {
+                    p.set("checkInDate", todayYMD);
+                    shouldUpdate = true;
+                }
+                if (!p.get("checkOutDate")) {
+                    p.set("checkOutDate", addDaysYMD(todayYMD, 1));
+                    shouldUpdate = true;
+                }
+                // Xóa các param thừa của Hour
+                if (p.get("checkInTime") || p.get("hours")) {
+                    p.delete("checkInTime");
+                    p.delete("hours");
+                    shouldUpdate = true;
+                }
+            }
+
+            // Chỉ cập nhật URL nếu có thay đổi để tránh render loop
+            if (shouldUpdate) {
+                setSearchParams(p, { replace: true });
+            }
+        }, [searchParams, setSearchParams]); 
+        // Lưu ý: dependency chỉ cần searchParams là đủ để kích hoạt khi URL đổi
+
+
 
     return (
         <div className="container mx-auto p-4">
@@ -442,7 +569,7 @@ export default function HotelDetail() {
                         className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
                         >
                         <option value="">Chọn giờ nhận phòng</option>
-                        {["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"].map((t) => (
+                        {["13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"].map((t) => (
                             <option key={t} value={t}>{t}</option>
                         ))}
                         </select>

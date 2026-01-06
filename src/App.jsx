@@ -78,7 +78,14 @@ export default function App() {
 
           <Route path="detail" element={<HotelDetail />} />
 
-          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="checkout" 
+            element={
+                <CustomerRoute>
+                  <CheckoutPage />
+                </CustomerRoute>
+            }
+          />
+
 
 
           {/* Auth */}

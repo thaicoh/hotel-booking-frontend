@@ -98,6 +98,16 @@ export default function SearchPage() {
         const date = new Date(d);
         return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
     };
+
+    // Helper function to format date as YYYY-MM-DD using local time
+    const toYMDLocal = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    };
+
+
     const fromYMD = (s) => (s ? new Date(s) : null);
 
     const getNextDay = (dateStr) => {
@@ -175,7 +185,7 @@ export default function SearchPage() {
                 if (ymdEnd) {
                     // Cộng thêm 1 ngày vào ngày checkOut để inclusive
                     const checkOutObj = new Date(`${ymdEnd}T12:00:00`);
-                    checkOutObj.setDate(checkOutObj.getDate() + 1);  // Thêm 1 ngày vào checkOut
+                    checkOutObj.setDate(checkOutObj.getDate());  // Thêm 1 ngày vào checkOut
                     p.set("checkOutDate", formatLocalDateTime(checkOutObj));
                 } else {
                     p.delete("checkOutDate");
@@ -211,10 +221,11 @@ export default function SearchPage() {
             }
 
             if (code === "DAY") {
-                p.delete("checkInTime");
-                p.delete("hours");
-                const checkOutWithTime = `${p.get("checkInDate")}T12:00:00`; // Đảm bảo checkOutDate có giờ cho "DAY"
-                p.set("checkOutDate", checkOutWithTime);
+                if (p.get("checkInDate")) {
+                    const onlyDate = p.get("checkInDate").split("T")[0];
+                    const checkOutWithTime = `${getNextDay(onlyDate)}T12:00:00`;
+                    p.set("checkOutDate", checkOutWithTime);
+                }
             }
         });
     };
@@ -421,16 +432,20 @@ export default function SearchPage() {
 
                     {bookingTypeCode === "HOUR" && (
                         <>
-                            <DatePicker
-                                selected={fromYMD(checkInDate)}
-                                onChange={handlePickCheckIn}
-                                minDate={new Date()}
-                                maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
-                                dateFormat="dd/MM/yyyy"
-                                placeholderText="Chọn ngày nhận phòng"
-                                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                                wrapperClassName="w-full"
-                            />
+<DatePicker
+    selected={checkInDate ? new Date(checkInDate) : new Date()} // Ensure using local time for initial date
+    onChange={(date) => {
+        setParam("checkInDate", toYMDLocal(date)); // Ensure local date format (YYYY-MM-DD)
+        handlePickCheckIn(date, checkOutDate ? new Date(checkOutDate) : null);
+    }}
+    minDate={new Date()}
+    maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
+    dateFormat="dd/MM/yyyy"
+    placeholderText="Chọn ngày nhận phòng"
+    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+    wrapperClassName="w-full"
+/>
+
 
                             <select
                                 value={checkInTime}
@@ -439,9 +454,8 @@ export default function SearchPage() {
                             >
                                 <option value="">Chọn giờ nhận phòng</option>
                                 {[
-                                    "08:00", "09:00", "10:00", "11:00", "12:00",
                                     "13:00", "14:00", "15:00", "16:00", "17:00",
-                                    "18:00", "19:00", "20:00", "21:00", "22:00",
+                                    "18:00", "19:00", "20:00"
                                 ].map((t) => (
                                     <option key={t} value={t}>{t}</option>
                                 ))}
@@ -463,14 +477,14 @@ export default function SearchPage() {
                     {bookingTypeCode === "NIGHT" && (
                     <>
                         <DatePicker
-                        selected={checkInDate ? new Date(checkInDate.split("T")[0]) : null} 
-                        onChange={handlePickCheckIn}
-                        minDate={new Date()}
-                        maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Chọn ngày nhận phòng"
-                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                        wrapperClassName="w-full"
+                            selected={checkInDate ? new Date(checkInDate) : new Date()} // Use current date if not selected
+                            onChange={handlePickCheckIn}
+                            minDate={new Date()}
+                            maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Chọn ngày nhận phòng"
+                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                            wrapperClassName="w-full"
                         />
 
                         <div className="text-sm text-gray-600 bg-gray-50 border rounded-md px-3 py-2">
@@ -485,21 +499,45 @@ export default function SearchPage() {
 
 
                     {bookingTypeCode === "DAY" && (
-                        <DailyBookingPicker
-                            checkInDate={checkInDate}
-                            setCheckInDate={(v) => {
-                            console.log("checkInDate v =", v);   // in ra giá trị v
-                            setParam("checkInDate", v);
-                            }}
-                            checkOutDate={checkOutDate}
-                            setCheckOutDate={(v) => {
-                            console.log("checkOutDate v =", v);  // in ra giá trị v
-                            setParam("checkOutDate", v);
-                            }}
-                            onChange={handlePickCheckIn} // ✅ callback thực sự
+                        <div className="w-full flex gap-4">
+                            {/* Ngày nhận phòng */}
+                            <DatePicker
+                            
+                            selected={checkInDate ? new Date(checkInDate) : new Date()} // Use current date if not selected
 
-                        />
+                            onChange={(date) => {
+                                setParam("checkInDate", toYMDLocal(date)); // Ensure local date format
+                                handlePickCheckIn(date, checkOutDate ? new Date(checkOutDate) : null);
+                            }}
+
+                            minDate={new Date()}
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Ngày nhận phòng"
+                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                            wrapperClassName="w-full"
+                            />
+
+                            {/* Ngày trả phòng */}
+                            <DatePicker
+                            selected={checkOutDate ? new Date(checkOutDate.split("T")[0]) : null}
+                            onChange={(date) => {
+                                const ymd = date ? date.toISOString().split("T")[0] : "";
+                                setParam("checkOutDate", ymd);
+                                handlePickCheckIn(checkInDate ? new Date(checkInDate.split("T")[0]) : null, date);
+                            }}
+                            minDate={
+                                checkInDate
+                                ? new Date(new Date(checkInDate.split("T")[0]).getTime() + 24 * 60 * 60 * 1000)
+                                : new Date()
+                            }
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Ngày trả phòng"
+                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
+                            wrapperClassName="w-full"
+                            />
+                        </div>
                     )}
+
 
 
                 </div>

@@ -20,12 +20,16 @@ export default function RoomCard({
   const navigate = useNavigate();
 
   const handleBooking = () => {
+    // Nếu checkInDate/checkOutDate có dạng yyyy-MM-ddTHH:mm:ss thì chỉ lấy phần yyyy-MM-dd
+    const onlyDateIn = checkInDate ? checkInDate.split("T")[0] : "";
+    const onlyDateOut = checkOutDate ? checkOutDate.split("T")[0] : "";
+
     const queryParams = new URLSearchParams({
       hotelId,
       roomTypeId: room.roomTypeId,
       bookingTypeCode,
-      checkInDate,
-      checkOutDate,
+      checkInDate: onlyDateIn,
+      checkOutDate: onlyDateOut,
       checkInTime,
       hours,
     });
