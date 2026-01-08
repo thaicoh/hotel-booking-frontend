@@ -1,7 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta http-equiv="refresh" content="0; url=./index.html" />
+    <meta charset="utf-8">
+    <script type="text/javascript">
+      // Redirect tất cả request về index.html nhưng giữ nguyên pathname
+      var redirect = '/hotel-booking-frontend/index.html';
+      var fullUrl = window.location.protocol + '//' + window.location.host + redirect + window.location.search + window.location.hash;
+      window.location.replace(fullUrl);
+    </script>
   </head>
   <body></body>
 </html>
