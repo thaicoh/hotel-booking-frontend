@@ -2,16 +2,18 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <title>Redirecting...</title>
     <script>
-      // spa-github-pages
-      var segmentCount = 1; // 1 = repo name: /hotel-booking-frontend
+      // https://github.com/rafgraph/spa-github-pages
+      var segmentCount = 1; // repo name
       var l = window.location;
+      var repoRoot = l.pathname.split('/').slice(0, 1 + segmentCount).join('/');
+
       l.replace(
-        l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
-        l.pathname.split("/").slice(0, 1 + segmentCount).join("/") +
-        "/?/" +
-        l.pathname.split("/").slice(1 + segmentCount).join("/") +
-        (l.search ? "&" + l.search.slice(1) : "") +
+        l.protocol + '//' + l.host +
+        repoRoot + '/?/' +
+        l.pathname.slice(repoRoot.length + 1).replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
         l.hash
       );
     </script>
