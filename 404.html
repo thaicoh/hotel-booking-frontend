@@ -1,13 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <meta charset="utf-8">
-    <script type="text/javascript">
-      // Redirect tất cả request về index.html nhưng giữ nguyên pathname
-      var pathname = window.location.pathname;
-      var search = window.location.search;
-      var hash = window.location.hash;
-      window.location.replace('/index.html' + pathname + search + hash);
+    <meta charset="utf-8" />
+    <script>
+      // spa-github-pages
+      var segmentCount = 1; // 1 = repo name: /hotel-booking-frontend
+      var l = window.location;
+      l.replace(
+        l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
+        l.pathname.split("/").slice(0, 1 + segmentCount).join("/") +
+        "/?/" +
+        l.pathname.split("/").slice(1 + segmentCount).join("/") +
+        (l.search ? "&" + l.search.slice(1) : "") +
+        l.hash
+      );
     </script>
   </head>
   <body></body>
