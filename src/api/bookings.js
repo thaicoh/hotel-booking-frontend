@@ -47,3 +47,11 @@ export const createBooking = (payload) => {
   return axiosInstance.post(`${API_BASE_URL}/bookings`, payload);
 };
 
+
+/**
+ * Lấy danh sách booking của khách hàng đang đăng nhập
+ */
+export const getMyBookings = () => {
+  return axiosInstance.get(`${API_BASE_URL}/bookings/my`);
+};
+

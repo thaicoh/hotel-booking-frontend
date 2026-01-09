@@ -48,6 +48,10 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // ✅ Gắn header để bỏ qua cảnh báo ngrok
+    config.headers["ngrok-skip-browser-warning"] = "true";
+
+
     return config;
   },
   (error) => {
@@ -86,7 +90,7 @@ axiosInstance.interceptors.response.use(
         console.warn("[USER_LOGIN_LOCKED] → Logout bắt buộc");
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
-        window.location.href = "/login";
+        window.location.href = `${import.meta.env.BASE_URL}login`;
         return Promise.reject(error.response);
       }
 

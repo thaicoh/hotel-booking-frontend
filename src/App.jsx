@@ -9,7 +9,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import Home from "./pages/customer/Home";
 import RoomList from "./pages/customer/RoomList";
 import RoomDetail from "./pages/customer/RoomDetail";
-import Booking from "./pages/customer/Booking";
+import MyBookingsPage from "./pages/customer/MyBookingsPage";
 import SearchPage from "./pages/customer/SearchPage";
 import Profile from "./pages/customer/Profile";
 import Login from "./pages/customer/Login";
@@ -63,7 +63,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="rooms" element={<RoomList />} />
           <Route path="rooms/:id" element={<RoomDetail />} />
-          <Route path="booking" element={<Booking />} />
+          <Route path="my-bookings" element={<MyBookingsPage />} />
           <Route
             path="profile"
             element={
@@ -138,7 +138,7 @@ export default function App() {
           <Route path="bookings" element={<ManageBookingsAdmin />} />
           <Route path="roomtypes" element={<ManageRoomTypes />} />
           <Route path="reports" element={<Reports />} />
-          <Route path="/admin/room-types/:id" element={<RoomTypeDetail />} />
+          <Route path="room-types/:id" element={<RoomTypeDetail />} />
         </Route>
 
         {/* ✅ 404 */}

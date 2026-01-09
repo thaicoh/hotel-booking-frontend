@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FaArrowLeft, FaUserFriends, FaCommentDots } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { checkRoomAvailability } from '../../api/checkout';
 import { createBooking } from '../../api/bookings';
+import { verifyVnPayPayment } from '../../api/payment'; // 👈 Import API mới tạo
 import { API_BASE_URL } from "../../config/api";
+
+
 
 const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("VNPAY");
@@ -18,8 +21,74 @@ const CheckoutPage = () => {
   const { search } = useLocation();
   const navigate = useNavigate();
 
+  // Dùng để chặn gọi API 2 lần (do React StrictMode)
+  const isVerifyCalled = useRef(false);
+
+  function parseVnpParams(searchStr) {
+    const raw = (searchStr || "").replace(/^\?/, "");
+    const fixed = raw.replace(/\?/g, "&"); // VNPay trả về bị dính nhiều ?
+    return new URLSearchParams(fixed);
+  }
+
+
+  // 🔥 UPDATE: useEffect xử lý kết quả trả về từ VNPay
+  useEffect(() => {
+    const params = parseVnpParams(search);
+    const vnpCode = params.get("vnp_ResponseCode");
+
+    // Nếu không có mã phản hồi thì không làm gì (đang ở bước checkout bình thường)
+    if (!vnpCode) return;
+
+    // Nếu đã gọi verify rồi thì thôi (tránh double request)
+    if (isVerifyCalled.current) return;
+    isVerifyCalled.current = true;
+
+    const handleVnPayReturn = async () => {
+      // 1. Chuyển URLSearchParams thành Object đơn giản để gửi về Backend
+      const vnpParamsObj = {};
+      for (const [key, value] of params.entries()) {
+        vnpParamsObj[key] = value;
+      }
+
+      // Nếu VNPay trả về lỗi (Code != 00)
+      if (vnpCode !== "00") {
+        alert(`❌ Thanh toán thất bại hoặc bị hủy (Code: ${vnpCode})`);
+        navigate("/"); 
+        return;
+      }
+
+      // 2. Gọi Backend để verify chữ ký và update DB
+      try {
+        setLoading(true); // Hiện loading để user không bấm lung tung
+        const res = await verifyVnPayPayment(vnpParamsObj);
+
+        if (res.data && res.data.code === 1000) {
+          const amount = Number(params.get("vnp_Amount") || 0) / 100;
+          alert(`✅ Thanh toán thành công ${amount.toLocaleString("vi-VN")}đ! Đơn hàng đã được xác nhận.`);
+          navigate("/my-bookings"); // Hoặc trang lịch sử booking
+        } else {
+          alert(`⚠️ Thanh toán thành công tại ngân hàng nhưng lỗi ghi nhận tại hệ thống: ${res.data.message}`);
+          // Vẫn navigate về profile để họ check lại
+          navigate("/my-bookings");
+        }
+      } catch (err) {
+        console.error("VnPay verify error:", err);
+        alert("Có lỗi kết nối khi xác thực thanh toán. Vui lòng liên hệ bộ phận CSKH.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    handleVnPayReturn();
+
+  }, [search, navigate]);
+
+
+
   const requestPayload = useMemo(() => {
-    const params = new URLSearchParams(search);
+
+    const params = parseVnpParams(search);
+
     const roomTypeId = params.get("roomTypeId");
     const bookingTypeCode = params.get("bookingTypeCode");
     const dateIn = params.get("checkInDate");
@@ -57,6 +126,12 @@ const CheckoutPage = () => {
 
   useEffect(() => {
     const fetchCheckoutInfo = async () => {
+
+      // ✅ nếu đang return từ VNPay (có vnp_ResponseCode) thì bỏ qua fetch phòng
+      const vnpCode = parseVnpParams(search).get("vnp_ResponseCode");
+      if (vnpCode) return;
+
+
       if (!requestPayload) {
         setLoading(false);
         setError("Thiếu thông tin ngày giờ hoặc loại phòng.");
@@ -88,7 +163,7 @@ const CheckoutPage = () => {
     };
 
     fetchCheckoutInfo();
-  }, [requestPayload, navigate]);
+  }, [requestPayload, navigate, search]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -119,8 +194,17 @@ const CheckoutPage = () => {
     try {
         const res = await createBooking(bookingPayload);
         if (res.data && res.data.code === 1000) {
-            alert("🎉 Đặt phòng thành công!");
-            navigate("/");
+              const booking = res.data.result;
+
+              // ✅ nếu ONLINE -> BE sẽ trả paymentUrl
+              if (finalPaymentMethod === "ONLINE" && booking?.paymentUrl) {
+                window.location.href = booking.paymentUrl;   // đi sang VNPay
+                return;
+              }
+
+              // ✅ PAY_AT_HOTEL -> xong luôn
+              alert("🎉 Đặt phòng thành công!");
+              navigate("/");
         } else {
             alert(`Lỗi: ${res.data.message || "Đặt phòng thất bại."}`);
             navigate(-1);

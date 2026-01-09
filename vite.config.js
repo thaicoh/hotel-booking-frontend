@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/hotel-booking-frontend/',
   plugins: [tailwindcss(),react()],
   server: {
     host: true,     // ✅ Cho phép truy cập từ mạng LAN

@@ -1,6 +1,19 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (function(l) {
+        if (l.search.startsWith('?/')) {
+          var q = l.search.slice(2).split('&');
+          var path = q.shift().replace(/~and~/g, '&');
+          var search = q.join('&').replace(/~and~/g, '&');
+          var newUrl = l.pathname.replace(/\/$/, '') + '/' + path + (search ? '?' + search : '') + l.hash;
+          window.history.replaceState(null, null, newUrl);
+        }
+      })(window.location);
+    </script>
+
+
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

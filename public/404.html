@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting...</title>
+    <script>
+      // https://github.com/rafgraph/spa-github-pages
+      var segmentCount = 1; // repo name
+      var l = window.location;
+      var repoRoot = l.pathname.split('/').slice(0, 1 + segmentCount).join('/');
+
+      l.replace(
+        l.protocol + '//' + l.host +
+        repoRoot + '/?/' +
+        l.pathname.slice(repoRoot.length + 1).replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
