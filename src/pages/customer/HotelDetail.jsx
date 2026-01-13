@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import RoomCard from '../../components/customer/RoomCard'; // Đảm bảo bạn đã import đúng đường dẫn của RoomCard component
-import { useLocation } from "react-router-dom";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import RoomCard from '../../components/customer/RoomCard';
+import { useLocation, useSearchParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import DailyBookingPicker from "../../components/customer/DailyBookingPicker"; 
+import DailyBookingPicker from "../../components/customer/DailyBookingPicker";
 import { getHotelDetailWithBooking } from "../../api/branches"
 import { API_BASE_URL } from "../../config/api";
 import RoomDetailModal from "../../components/customer/RoomDetailModal"
-
-
 
 export default function HotelDetail() {
 
@@ -22,13 +19,9 @@ export default function HotelDetail() {
     const checkInTime = searchParams.get("checkInTime");
     const hours = searchParams.get("hours");
 
-
-
-
     const buildCheckInOut = ({ bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours }) => {
         if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
 
-        // Helper: nếu chuỗi đã có 'T' thì coi như đã có giờ, không nối thêm
         const appendTime = (dateStr, timeStr) => {
             if (!dateStr) return null;
             return dateStr.includes("T") ? dateStr : `${dateStr}T${timeStr}`;
@@ -65,132 +58,65 @@ export default function HotelDetail() {
         hours: hoursNum,
     };
 
-    const [branchDetail, setBranchDetail] = useState(null); // { branchId, branchName, address, photoUrl, rooms: [...] }
+    const [branchDetail, setBranchDetail] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Modal Image Logic
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-    // Use these parameters to render the hotel details
-    console.log(hotelId, checkInDate, checkOutDate, bookingTypeCode, checkInTime, hours);
+    const openModal = (index) => {
+        setCurrentImageIndex(index);
+        setIsModalOpen(true);
+    };
 
-    
-//   const hotel = {
-//     name: "Hotel le Jardin Secret Saigon",
-//     address: "228 Bến Vân Đồn, Phường 5, Quận 4, Thành phố Hồ Chí Minh, Việt Nam",
-//     mainImageUrl: "https://s3.go2joy.vn/1000w/hotel/1052/6130_1672112277_63aa689520013.jpg", // Placeholder image
-//     thumbnailImages: [
-//       "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/2_1_118_1562826286707.jpg",
-//       "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/2_1_118_1562826287319.jpg",
-//       "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/2_1052_118_1562826287781.jpg",
-//       "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/2_1052_118_1562826288627.jpg",
-//     ], // Thumbnails
-//     rooms: [
-//       {
-//         name: "VIP Room",
-//         imageUrl: "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/34998bb2a866b045ed3f9893124e94b0.jpg",
-//         description: "Room with great facilities and a beautiful view.",
-//         price: "500,000 VND",
-//         area: 25, // Diện tích phòng
-//         bed: "2 giường đôi", // Số giường
-//         duration: "3 giờ", // Thời gian sử dụng
-//       },
-//       {
-//         name: "Deluxe Room",
-//         imageUrl: "https://s3.go2joy.vn/1000w/hotel/1052_1562808031594/2_1_118_1562827695383.jpg",
-//         description: "Luxurious room with premium amenities.",
-//         price: "700,000 VND",
-//         area: 30,
-//         bed: "1 giường lớn",
-//         duration: "1 đêm",
-//       },
-//     ],
-//   };
+    const closeModal = () => {
+        setIsModalOpen(false);
+    };
 
+    const nextImage = () => {
+        if (!branchDetail?.rooms) return;
+        const allImages = branchDetail.rooms.flatMap((room) => room.photoUrls || []);
+        setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
+    };
 
+    const prevImage = () => {
+        if (!branchDetail?.rooms) return;
+        const allImages = branchDetail.rooms.flatMap((room) => room.photoUrls || []);
+        setCurrentImageIndex(
+            (prev) => (prev - 1 + allImages.length) % allImages.length
+        );
+    };
 
-  
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-
-  const openModal = (index) => {
-    setCurrentImageIndex(index);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % hotel.thumbnailImages.length);
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex(
-      (prev) => (prev - 1 + hotel.thumbnailImages.length) % hotel.thumbnailImages.length
-    );
-  };
-
-
-    const routerLocation = useLocation();
-
-    const [hotels, setHotels] = useState([]);
-
-
-    // --- Helpers ---
+    // Helpers
     const toYMD = (d) => toYMDLocal(d);
-
     const fromYMD = (s) => (s ? new Date(s) : null);
-
     const getNextDay = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split("T")[0];
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split("T")[0];
     };
 
     const setParam = (key, value) => {
-    const p = new URLSearchParams(searchParams);
-    if (value === null || value === undefined || value === "") p.delete(key);
-    else p.set(key, value);
-    setSearchParams(p, { replace: true });
+        const p = new URLSearchParams(searchParams);
+        if (value === null || value === undefined || value === "") p.delete(key);
+        else p.set(key, value);
+        setSearchParams(p, { replace: true });
     };
 
     const replaceParams = (updater) => {
-    const p = new URLSearchParams(searchParams);
-    updater(p);
-    setSearchParams(p, { replace: true });
+        const p = new URLSearchParams(searchParams);
+        updater(p);
+        setSearchParams(p, { replace: true });
     };
 
-    // --- Current values from URL ---
-    const keyword = searchParams.get("location") || ""; // dùng 'location' để match backend field
-
-    // --- Click đổi loại đặt phòng ---
+    // Events
     const handleChangeType = (code) => {
         replaceParams((p) => {
             p.set("bookingTypeCode", code);
-
-            // reset các field không liên quan
-            if (code !== "HOUR") {
-
-            }
-
-            if (code === "HOUR") {
-                
-            }
-
-            if (code === "NIGHT") {
-            // đêm: checkout tự +1 ngày khi chọn checkin
-                if (p.get("checkInDate")) {
-                    p.set("checkOutDate", getNextDay(p.get("checkInDate")));
-                } else {
-                    p.delete("checkOutDate");
-                }
-            }
-
-            if (code === "DAY") {
-            // đêm: checkout tự +1 ngày khi chọn checkin
+            if (code === "NIGHT" || code === "DAY") {
                 if (p.get("checkInDate")) {
                     p.set("checkOutDate", getNextDay(p.get("checkInDate")));
                 } else {
@@ -200,28 +126,23 @@ export default function HotelDetail() {
         });
     };
 
-    // --- Chọn check-in (tùy loại) ---
     const handlePickCheckIn = (dateObj) => {
         const ymd = dateObj ? toYMD(dateObj) : "";
         replaceParams((p) => {
             if (!ymd) {
-            p.delete("checkInDate");
-            p.delete("checkOutDate");
-            return;
+                p.delete("checkInDate");
+                p.delete("checkOutDate");
+                return;
             }
-
             p.set("checkInDate", ymd);
-
             if (bookingTypeCode === "NIGHT") {
-            p.set("checkOutDate", getNextDay(ymd)); // auto +1
+                p.set("checkOutDate", getNextDay(ymd));
             }
-
             if (bookingTypeCode === "HOUR") {
-            p.delete("checkOutDate"); // giờ: không có checkout
+                p.delete("checkOutDate");
             }
         });
-    };  
-
+    };
 
     // Room detail modal 
     const [selectedRoom, setSelectedRoom] = useState(null);
@@ -237,11 +158,9 @@ export default function HotelDetail() {
         setSelectedRoom(null);
     };
 
-    const HOURS_OPTIONS = ["13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"];
-
+    const HOURS_OPTIONS = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
     const pad2 = (n) => String(n).padStart(2, "0");
 
-    // YYYY-MM-DD theo local (KHÔNG dùng toISOString)
     const toYMDLocal = (d) => {
         const y = d.getFullYear();
         const m = pad2(d.getMonth() + 1);
@@ -259,410 +178,394 @@ export default function HotelDetail() {
     const getDefaultHourTime = () => {
         const now = new Date();
         const currentHour = now.getHours();
-
-        // nếu qua 21h => ngày +1 và giờ đầu tiên
         if (currentHour >= 21) {
             return { dayOffset: 1, time: HOURS_OPTIONS[0] };
         }
-
-        // tìm giờ tiếp theo có trong select
         const nextHour = currentHour + 1;
         const nextCandidate = `${pad2(nextHour)}:00`;
         if (HOURS_OPTIONS.includes(nextCandidate)) {
             return { dayOffset: 0, time: nextCandidate };
         }
-
-        // nếu giờ tiếp theo không nằm trong list => chọn giờ đầu tiên
         return { dayOffset: 0, time: HOURS_OPTIONS[0] };
     };
-
-
 
     useEffect(() => {
         const fetchHotel = async () => {
             if (!hotelId || !bookingTypeCode) return;
-
             try {
-            setLoading(true);
-            setError(null);
-
-            const res = await getHotelDetailWithBooking(hotelId, payload);
-            // Giả định backend trả về { code, message, result }
-            const data = res.data?.result ?? res.data;
-
-            console.log("👉 Kết quả API hotel-detail:", data); // log ra dữ liệu trả về
-
-            setBranchDetail(data);
+                setLoading(true);
+                setError(null);
+                const res = await getHotelDetailWithBooking(hotelId, payload);
+                const data = res.data?.result ?? res.data;
+                setBranchDetail(data);
             } catch (err) {
-            console.error("❌ Lỗi khi gọi API hotel-detail:", err);
-            setError(
-                err?.response?.data?.message ||
-                err.message ||
-                "Đã xảy ra lỗi khi tải dữ liệu khách sạn"
-            );
+                console.error("❌ Lỗi khi gọi API hotel-detail:", err);
+                setError(err?.response?.data?.message || err.message || "Đã xảy ra lỗi khi tải dữ liệu");
             } finally {
-            setLoading(false);
+                setLoading(false);
             }
         };
-
         fetchHotel();
     }, [hotelId, bookingTypeCode, checkIn, checkOut, hoursNum]);
 
     useEffect(() => {
-            const p = new URLSearchParams(searchParams);
-            const code = p.get("bookingTypeCode") || "HOUR";
-            let shouldUpdate = false;
+        const p = new URLSearchParams(searchParams);
+        const code = p.get("bookingTypeCode") || "HOUR";
+        let shouldUpdate = false;
+        const today = new Date();
+        const todayYMD = toYMDLocal(today);
 
-            const today = new Date();
-            const todayYMD = toYMDLocal(today);
-
-            // 1. Xử lý logic cho Theo Giờ (HOUR)
-            if (code === "HOUR") {
-                // Nếu chưa có ngày -> set ngày mai (hoặc hôm nay tùy logic giờ)
-                if (!p.get("checkInDate")) {
-                    const { dayOffset } = getDefaultHourTime();
-                    const ymd = dayOffset ? addDaysYMD(todayYMD, 1) : todayYMD;
-                    p.set("checkInDate", ymd);
-                    shouldUpdate = true;
-                }
-                
-                // QUAN TRỌNG: Kiểm tra riêng checkInTime và hours
-                // Nếu thiếu checkInTime -> set default
-                if (!p.get("checkInTime")) {
-                    const { time } = getDefaultHourTime();
-                    p.set("checkInTime", time);
-                    shouldUpdate = true;
-                }
-
-                // Nếu thiếu hours -> set default là 1
-                if (!p.get("hours")) {
-                    p.set("hours", "1");
-                    shouldUpdate = true;
-                }
-
-                // HOUR thì không cần checkOutDate -> xóa đi cho sạch URL
-                if (p.get("checkOutDate")) {
-                    p.delete("checkOutDate");
-                    shouldUpdate = true;
-                }
+        if (code === "HOUR") {
+            if (!p.get("checkInDate")) {
+                const { dayOffset } = getDefaultHourTime();
+                const ymd = dayOffset ? addDaysYMD(todayYMD, 1) : todayYMD;
+                p.set("checkInDate", ymd);
+                shouldUpdate = true;
             }
-
-            // 2. Xử lý logic cho Qua Đêm (NIGHT)
-            if (code === "NIGHT") {
-                if (!p.get("checkInDate")) {
-                    p.set("checkInDate", todayYMD);
-                    shouldUpdate = true;
-                }
-                // NIGHT luôn tự động tính checkout = checkin + 1 ngày
-                const currentCheckIn = p.get("checkInDate");
-                const expectedCheckOut = getNextDay(currentCheckIn);
-                
-                if (p.get("checkOutDate") !== expectedCheckOut) {
-                    p.set("checkOutDate", expectedCheckOut);
-                    shouldUpdate = true;
-                }
-
-                // Xóa các param thừa của Hour
-                if (p.get("checkInTime") || p.get("hours")) {
-                    p.delete("checkInTime");
-                    p.delete("hours");
-                    shouldUpdate = true;
-                }
+            if (!p.get("checkInTime")) {
+                const { time } = getDefaultHourTime();
+                p.set("checkInTime", time);
+                shouldUpdate = true;
             }
-
-            // 3. Xử lý logic cho Theo Ngày (DAY)
-            if (code === "DAY") {
-                if (!p.get("checkInDate")) {
-                    p.set("checkInDate", todayYMD);
-                    shouldUpdate = true;
-                }
-                if (!p.get("checkOutDate")) {
-                    p.set("checkOutDate", addDaysYMD(todayYMD, 1));
-                    shouldUpdate = true;
-                }
-                // Xóa các param thừa của Hour
-                if (p.get("checkInTime") || p.get("hours")) {
-                    p.delete("checkInTime");
-                    p.delete("hours");
-                    shouldUpdate = true;
-                }
+            if (!p.get("hours")) {
+                p.set("hours", "1");
+                shouldUpdate = true;
             }
-
-            // Chỉ cập nhật URL nếu có thay đổi để tránh render loop
-            if (shouldUpdate) {
-                setSearchParams(p, { replace: true });
+            if (p.get("checkOutDate")) {
+                p.delete("checkOutDate");
+                shouldUpdate = true;
             }
-        }, [searchParams, setSearchParams]); 
-        // Lưu ý: dependency chỉ cần searchParams là đủ để kích hoạt khi URL đổi
+        }
 
+        if (code === "NIGHT") {
+            if (!p.get("checkInDate")) {
+                p.set("checkInDate", todayYMD);
+                shouldUpdate = true;
+            }
+            const currentCheckIn = p.get("checkInDate");
+            const expectedCheckOut = getNextDay(currentCheckIn);
+            if (p.get("checkOutDate") !== expectedCheckOut) {
+                p.set("checkOutDate", expectedCheckOut);
+                shouldUpdate = true;
+            }
+            if (p.get("checkInTime") || p.get("hours")) {
+                p.delete("checkInTime");
+                p.delete("hours");
+                shouldUpdate = true;
+            }
+        }
 
+        if (code === "DAY") {
+            if (!p.get("checkInDate")) {
+                p.set("checkInDate", todayYMD);
+                shouldUpdate = true;
+            }
+            if (!p.get("checkOutDate")) {
+                p.set("checkOutDate", addDaysYMD(todayYMD, 1));
+                shouldUpdate = true;
+            }
+            if (p.get("checkInTime") || p.get("hours")) {
+                p.delete("checkInTime");
+                p.delete("hours");
+                shouldUpdate = true;
+            }
+        }
+
+        if (shouldUpdate) {
+            setSearchParams(p, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
+
+    // CHECK BRANCH STATUS
+    const isMaintenance = branchDetail && branchDetail.branchStatus !== 'ACTIVE';
 
     return (
         <div className="container mx-auto p-4">
             {/* Section 1: Hotel Images */}
             {branchDetail && (
-            <div className="flex mb-6 bg-white p-6 rounded-md shadow-md">
-                {/* Ảnh chính của branch */}
-                <div className="w-1/2 mr-4">
-                <img
-                    src={`${API_BASE_URL}/${branchDetail.photoUrl}`}
-                    alt="Hotel Main"
-                    className="w-full h-100 object-cover rounded-lg"
-                />
-                </div>
-
-                {/* Ảnh thumbnail: lấy từ tất cả room */}
-                <div className="w-1/2 grid grid-cols-2 gap-4">
-                {branchDetail.rooms
-                    ?.flatMap((room) => room.photoUrls || []) // gom tất cả ảnh từ các room
-                    .slice(0, 4) // chỉ lấy 4 ảnh đầu tiên
-                    .map((image, index, arr) => (
-                    <div key={index} className="relative">
+                <div className="flex flex-col lg:flex-row mb-6 bg-white p-4 lg:p-6 rounded-md shadow-md">
+                    <div className="w-full lg:w-1/2 lg:mr-4 mb-4 lg:mb-0">
                         <img
-                        src={`${API_BASE_URL}/${image}`}
-                        alt={`Thumbnail ${index}`}
-                        className="w-full h-48 object-cover rounded-lg"
+                            src={`${API_BASE_URL}/${branchDetail.photoUrl}`}
+                            alt="Hotel Main"
+                            className="w-full h-64 lg:h-full object-cover rounded-lg"
                         />
-                        {/* Nút hiển thị tổng số ảnh */}
-                        {index === arr.length - 1 && (
-                        <div
-                            onClick={() => openModal(index)}
-                            className="absolute bottom-4 right-4 cursor-pointer z-10"
-                        >
-                            <div className="flex items-center justify-center gap-6 pl-4 pr-6 py-2 rounded-[50px] h-[32px] bg-[#000000B2] opacity-70 min-w-[72px]">
-                            <img
-                                width="20"
-                                height="20"
-                                src="https://go2joy.vn/_nuxt/hotel-detail-total-image-icon.cf781a35.svg"
-                                alt="Go2joy icon"
-                            />
-                            <span className="body-large-regular text-white">
-                                {
-                                branchDetail.rooms?.flatMap((room) => room.photoUrls || [])
-                                    .length
-                                }
-                            </span>
-                            </div>
-                        </div>
-                        )}
                     </div>
-                    ))}
+                    <div className="w-full lg:w-1/2 grid grid-cols-2 gap-4">
+                        {branchDetail.rooms
+                            ?.flatMap((room) => room.photoUrls || [])
+                            .slice(0, 4)
+                            .map((image, index, arr) => (
+                                <div key={index} className="relative">
+                                    <img
+                                        src={`${API_BASE_URL}/${image}`}
+                                        alt={`Thumbnail ${index}`}
+                                        className="w-full h-32 lg:h-48 object-cover rounded-lg"
+                                    />
+                                    {index === arr.length - 1 && (
+                                        <div
+                                            onClick={() => openModal(index)}
+                                            className="absolute bottom-2 right-2 lg:bottom-4 lg:right-4 cursor-pointer z-10"
+                                        >
+                                            <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-black/70">
+                                                <img
+                                                    width="16" height="16"
+                                                    src="https://go2joy.vn/_nuxt/hotel-detail-total-image-icon.cf781a35.svg"
+                                                    alt="icon"
+                                                />
+                                                <span className="text-white text-sm font-semibold">
+                                                    {branchDetail.rooms?.flatMap((room) => room.photoUrls || []).length}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                    </div>
                 </div>
-            </div>
             )}
 
             {/* Modal Slideshow */}
             {isModalOpen && branchDetail && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-                <div className="bg-white p-4 rounded-lg w-2/3">
-                <div className="flex justify-between mb-4">
-                    <button onClick={closeModal} className="text-black text-2xl">
-                    &times;
-                    </button>
-                </div>
-                <div className="relative">
-                    <img
-                    src={`${API_BASE_URL}/${
-                        branchDetail.rooms?.flatMap((room) => room.photoUrls || [])[currentImageIndex]
-                    }`}
-                    alt="Slideshow"
-                    className="w-full h-auto object-cover rounded-lg"
-                    />
-                    <div
-                    className="absolute top-1/2 left-0 transform -translate-y-1/2 px-4 py-2 bg-black text-white cursor-pointer"
-                    onClick={prevImage}
-                    >
-                    &#10094;
-                    </div>
-                    <div
-                    className="absolute top-1/2 right-0 transform -translate-y-1/2 px-4 py-2 bg-black text-white cursor-pointer"
-                    onClick={nextImage}
-                    >
-                    &#10095;
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white p-2 rounded-lg w-full max-w-4xl relative">
+                        <button onClick={closeModal} className="absolute top-2 right-4 text-black text-4xl z-10">&times;</button>
+                        <div className="relative flex items-center justify-center">
+                            <img
+                                src={`${API_BASE_URL}/${branchDetail.rooms?.flatMap((room) => room.photoUrls || [])[currentImageIndex]}`}
+                                alt="Slideshow"
+                                className="max-h-[80vh] w-auto object-contain rounded-lg"
+                            />
+                            <button
+                                className="absolute left-2 p-2 bg-black/50 text-white rounded-full hover:bg-black"
+                                onClick={prevImage}
+                            >
+                                &#10094;
+                            </button>
+                            <button
+                                className="absolute right-2 p-2 bg-black/50 text-white rounded-full hover:bg-black"
+                                onClick={nextImage}
+                            >
+                                &#10095;
+                            </button>
+                        </div>
                     </div>
                 </div>
-                </div>
-            </div>
             )}
 
             {/* Section 2: Branch Information */}
             {branchDetail && (
-            <div className="mb-8 bg-white p-6 rounded-md shadow-md">
-                <h1 className="text-3xl font-semibold w-full pb-3">
-                {branchDetail.branchName}
-                </h1>
-                <p className="text-gray-600">{branchDetail.address}</p>
-            </div>
+                <div className="mb-4 bg-white p-6 rounded-md shadow-md">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <h1 className="text-2xl lg:text-3xl font-semibold">
+                            {branchDetail.branchName}
+                        </h1>
+                        {/* Nhãn trạng thái bên cạnh tên khách sạn */}
+                        {isMaintenance && (
+                            <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-bold rounded-full border border-red-300">
+                                Đang bảo trì
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-gray-600 text-sm lg:text-base">{branchDetail.address}</p>
+                </div>
             )}
 
+            {/* THÔNG BÁO BẢO TRÌ */}
+            {isMaintenance && (
+                <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm flex items-start">
+                    <div className="mr-3 text-red-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 className="text-lg font-bold text-red-800">Khách sạn đang bảo trì</h4>
+                        <p className="text-red-700">
+                            Hiện tại khách sạn này đang tạm ngưng hoạt động để nâng cấp dịch vụ. 
+                            Quý khách vui lòng quay lại sau hoặc chọn chi nhánh khác.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Khối đặt phòng */}
-            <div className="bg-white p-6 rounded-md shadow-md">
+            <div className={`bg-white p-4 lg:p-6 rounded-md shadow-md transition-opacity duration-300 ${isMaintenance ? "opacity-60 pointer-events-none select-none grayscale-[50%]" : ""}`}>
+                {/* Loại đặt phòng */}
+                <div className="mb-6">
+                    <h3 className="font-semibold text-gray-700 mb-2">Loại đặt phòng</h3>
+                    <div className="flex flex-wrap gap-2 lg:gap-4">
+                        {["HOUR", "NIGHT", "DAY"].map((type) => (
+                            <button
+                                key={type}
+                                type="button"
+                                onClick={() => handleChangeType(type)}
+                                disabled={isMaintenance}
+                                className={`flex-1 sm:flex-none px-4 py-2 lg:px-6 lg:py-3 text-sm lg:text-base rounded-md transition border ${bookingTypeCode === type
+                                    ? "bg-orange-600 text-white font-bold border-orange-600"
+                                    : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
+                                    }`}
+                            >
+                                {type === "HOUR" ? "Theo giờ" : type === "NIGHT" ? "Qua đêm" : "Theo ngày"}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-            {/* Loại đặt phòng */}
-            <div>
-                <h3 className="font-semibold text-gray-700 mb-2">Loại đặt phòng</h3>
-                <div className="flex justify-start gap-4 mb-6">
-                <button
-                    type="button"
-                    onClick={() => handleChangeType("HOUR")}
-                    className={`px-6 py-3 rounded-md transition border ${
-                    bookingTypeCode === "HOUR"
-                        ? "bg-orange-600 text-white font-bold border-orange-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                    }`}
-                >
-                    Theo giờ
-                </button>
+                {/* Ngày giờ */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
+                    <h3 className="w-full lg:w-32 font-semibold text-gray-700">Ngày giờ</h3>
 
-                <button
-                    type="button"
-                    onClick={() => handleChangeType("NIGHT")}
-                    className={`px-6 py-3 rounded-md transition border ${
-                    bookingTypeCode === "NIGHT"
-                        ? "bg-orange-600 text-white font-bold border-orange-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                    }`}
-                >
-                    Qua đêm
-                </button>
+                    <div className="flex flex-col sm:flex-row flex-1 w-full gap-4">
+                        {bookingTypeCode === "HOUR" && (
+                            <>
+                                <div className="w-full sm:w-1/3">
+                                    <DatePicker
+                                        selected={fromYMD(checkInDate)}
+                                        onChange={handlePickCheckIn}
+                                        minDate={new Date()}
+                                        maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
+                                        dateFormat="dd/MM/yyyy"
+                                        placeholderText="Chọn ngày"
+                                        disabled={isMaintenance}
+                                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                                    />
+                                </div>
+                                <div className="w-full sm:w-1/3">
+                                    <select
+                                        value={checkInTime || ""}
+                                        onChange={(e) => setParam("checkInTime", e.target.value)}
+                                        disabled={isMaintenance}
+                                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                                    >
+                                        <option value="">Giờ nhận</option>
+                                        {HOURS_OPTIONS.map((t) => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="w-full sm:w-1/3">
+                                    <select
+                                        value={hours || ""}
+                                        onChange={(e) => setParam("hours", e.target.value)}
+                                        disabled={isMaintenance}
+                                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                                    >
+                                        <option value="">Số giờ</option>
+                                        {[1, 2, 3, 4, 5, 6].map((h) => (
+                                            <option key={h} value={String(h)}>{h} giờ</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
 
-                <button
-                    type="button"
-                    onClick={() => handleChangeType("DAY")}
-                    className={`px-6 py-3 rounded-md transition border ${
-                    bookingTypeCode === "DAY"
-                        ? "bg-orange-600 text-white font-bold border-orange-600"
-                        : "bg-white text-gray-700 border-gray-300 hover:bg-blue-50"
-                    }`}
-                >
-                    Theo ngày
-                </button>
+                        {bookingTypeCode === "NIGHT" && (
+                            <>
+                                <div className="w-full sm:w-1/2">
+                                    <DatePicker
+                                        selected={fromYMD(checkInDate)}
+                                        onChange={handlePickCheckIn}
+                                        minDate={new Date()}
+                                        dateFormat="dd/MM/yyyy"
+                                        disabled={isMaintenance}
+                                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100"
+                                    />
+                                </div>
+                                <div className="w-full sm:w-1/2 text-sm text-gray-600 bg-gray-50 border rounded-md px-3 py-2 flex items-center">
+                                    Checkout: <span className="font-semibold ml-1">{checkOutDate || "—"}</span> (12:00)
+                                </div>
+                            </>
+                        )}
+
+                        {bookingTypeCode === "DAY" && (
+                            <div className="w-full">
+                                <DailyBookingPicker
+                                    checkInDate={checkInDate}
+                                    setCheckInDate={(v) => setParam("checkInDate", v)}
+                                    checkOutDate={checkOutDate}
+                                    setCheckOutDate={(v) => setParam("checkOutDate", v)}
+                                    disabled={isMaintenance}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    <button 
+                        disabled={isMaintenance}
+                        className={`w-full lg:w-32 px-6 py-2 font-bold text-white rounded-md transition
+                            ${isMaintenance ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}
+                    >
+                        Cập nhật
+                    </button>
                 </div>
             </div>
 
-            {/* Ngày giờ (tùy bookingType) */}
-            <div className="flex items-center justify-between gap-6">
-                {/* Bên trái: Text cố định */}
-                <h3 className="w-32 font-semibold text-gray-700">Ngày giờ</h3>
-
-                {/* Giữa: các input căn đều */}
-                <div className="flex flex-1 justify-center gap-6">
-                {/* HOUR */}
-                {bookingTypeCode === "HOUR" && (
-                    <>
-                    <div className="w-1/4">
-                        <DatePicker
-                        selected={fromYMD(checkInDate)}
-                        onChange={handlePickCheckIn}
-                        minDate={new Date()}
-                        maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Chọn ngày nhận phòng"
-                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                        />
-                    </div>
-                    <div className="w-1/4">
-                        <select
-                        value={checkInTime}
-                        onChange={(e) => setParam("checkInTime", e.target.value)}
-                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                        >
-                        <option value="">Chọn giờ nhận phòng</option>
-                        {["13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"].map((t) => (
-                            <option key={t} value={t}>{t}</option>
-                        ))}
-                        </select>
-                    </div>
-                    <div className="w-1/4">
-                        <select
-                        value={hours}
-                        onChange={(e) => setParam("hours", e.target.value)}
-                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                        >
-                        <option value="">Chọn số giờ</option>
-                        {[1,2,3,4,5,6].map((h) => (
-                            <option key={h} value={String(h)}>{h} giờ</option>
-                        ))}
-                        </select>
-                    </div>
-                    </>
-                )}
-
-                {/* NIGHT */}
-                {bookingTypeCode === "NIGHT" && (
-                    <>
-                    <DatePicker
-                        selected={fromYMD(checkInDate)}
-                        onChange={handlePickCheckIn}
-                        minDate={new Date()}
-                        maxDate={new Date(new Date().setMonth(new Date().getMonth() + 1))}
-                        dateFormat="dd/MM/yyyy"
-                        placeholderText="Chọn ngày nhận phòng"
-                        className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-400"
-                    />
-                    <div className="text-sm text-gray-600 bg-gray-50 border rounded-md px-3 py-2">
-                        Trả phòng: <span className="font-semibold">{checkOutDate || "—"}</span> (12:00 hôm sau)
-                    </div>
-                    </>
-                )}
-
-                {/* DAY */}
-                {bookingTypeCode === "DAY" && (
-                    <DailyBookingPicker
-                    checkInDate={checkInDate}
-                    setCheckInDate={(v) => setParam("checkInDate", v)}
-                    checkOutDate={checkOutDate}
-                    setCheckOutDate={(v) => setParam("checkOutDate", v)}
-                    />
-                )}
-                </div>
-
-                {/* Bên phải: nút cố định */}
-                <button className="w-32 px-6 py-2 bg-orange-600 font-bold text-white rounded-md hover:bg-orange-700">
-                Cập nhật
-                </button>
-            </div>
-            </div>
-
-
+            {/* Danh sách phòng */}
             {branchDetail && (
                 <div className="mt-8">
                     <h3 className="text-xl font-semibold mb-4">Danh sách phòng</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {branchDetail.rooms?.map((room) => (
-                        <div key={room.roomTypeId} className="flex justify-center">
-                        <RoomCard
-                            room={{
-                            roomTypeId: room.roomTypeId,
-                            name: room.roomTypeName,
-                            description: room.description,
-                            price: room.price,
-                            currency: room.currency,
-                            availableRooms: room.availableRooms,
-                            images: room.photoUrls,
-                            capacity: room.capacity,
-                            }}
-                            hotelId={hotelId}
-                            bookingTypeCode={bookingTypeCode}
-                            checkInDate={checkInDate}
-                            checkOutDate={checkOutDate}
-                            checkInTime={checkInTime}
-                            hours={hours}
-                            onViewDetail={handleViewRoomDetail}
-                        />
-                        </div>
-                    ))}
+                        {branchDetail.rooms?.map((room) => {
+                            const isSoldOut = room.availableRooms === 0;
+                            // LOGIC: Disable nếu đang bảo trì HOẶC hết phòng
+                            const isLocked = isMaintenance || isSoldOut;
+
+                            return (
+                                <div 
+                                    key={room.roomTypeId} 
+                                    className={`relative flex justify-center transition-all duration-300 rounded-lg ${
+                                        isLocked ? "grayscale opacity-75 pointer-events-none select-none bg-gray-100" : ""
+                                    }`}
+                                >
+                                    {/* Overlay Logic */}
+                                    {isLocked && (
+                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/10 rounded-lg">
+                                            {/* Ưu tiên hiện chữ BẢO TRÌ, nếu không bảo trì mới check hết phòng */}
+                                            {isMaintenance ? (
+                                                <div className="bg-gray-800 text-white px-6 py-2 font-bold text-lg rounded shadow-lg transform -rotate-12 border-2 border-white">
+                                                    BẢO TRÌ
+                                                </div>
+                                            ) : (
+                                                <div className="bg-red-600 text-white px-6 py-2 font-bold text-lg rounded shadow-lg transform -rotate-12 border-2 border-white">
+                                                    HẾT PHÒNG
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    <div className="w-full">
+                                        <RoomCard
+                                            room={{
+                                                roomTypeId: room.roomTypeId,
+                                                name: room.roomTypeName,
+                                                description: room.description,
+                                                price: room.price,
+                                                currency: room.currency,
+                                                availableRooms: room.availableRooms,
+                                                images: room.photoUrls,
+                                                capacity: room.capacity,
+                                            }}
+                                            hotelId={hotelId}
+                                            bookingTypeCode={bookingTypeCode}
+                                            checkInDate={checkInDate}
+                                            checkOutDate={checkOutDate}
+                                            checkInTime={checkInTime}
+                                            hours={hours}
+                                            onViewDetail={handleViewRoomDetail}
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
             {/* Modal chi tiết phòng */}
             {isRoomModalOpen && selectedRoom && (
-            <RoomDetailModal room={selectedRoom} onClose={closeRoomModal} />
+                <RoomDetailModal room={selectedRoom} onClose={closeRoomModal} />
             )}
-
-
         </div>
     );
 }

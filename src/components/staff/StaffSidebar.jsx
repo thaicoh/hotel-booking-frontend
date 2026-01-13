@@ -17,6 +17,7 @@ export default function StaffSidebar() {
     // { label: "Quản lý loại phòng", path: "/staff/room-types", icon: <FaBed /> },
     { label: "Quản lý phòng trống", path: "/staff/rooms", icon: <FaDoorOpen /> },
     { label: "Quản lý booking", path: "/staff/bookings", icon: <FaCalendarCheck /> },
+    { label: "Quản lý khóa phòng", path: "/staff/room-type-lock", icon: <FaCalendarCheck /> },
     { label: "Quản lý đánh giá", path: "/staff/reviews", icon: <FaStar /> },
   ];
 

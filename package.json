@@ -22,6 +22,7 @@
     "react-icons": "^5.5.0",
     "react-range": "^1.10.0",
     "react-router-dom": "^7.10.1",
+    "react-toastify": "^11.0.5",
     "recharts": "^3.6.0",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3"
