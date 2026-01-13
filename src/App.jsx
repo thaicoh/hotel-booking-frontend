@@ -22,6 +22,9 @@ import StaffDashboard from "./pages/staff/StaffDashboard";
 import ManageBookings from "./pages/staff/ManageBookings";
 import ManageRooms from "./pages/staff/ManageRooms";
 import CheckInOut from "./pages/staff/CheckInOut";
+import StaffHotelManager from "./pages/staff/StaffHotelManager";
+import StaffRoomTypeDetail from "./pages/staff/StaffRoomTypeDetail";
+
 
 // ✅ Admin pages
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -121,6 +124,9 @@ export default function App() {
           <Route path="bookings" element={<ManageBookings />} />
           <Route path="rooms" element={<ManageRooms />} />
           <Route path="checkin-out" element={<CheckInOut />} />
+          <Route path="hotel" element={<StaffHotelManager />} />
+
+          <Route path="room-types/:id" element={<StaffRoomTypeDetail />} />
         </Route>
 
         {/* ✅ ADMIN ROUTES */}

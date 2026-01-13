@@ -1,233 +1,199 @@
 import { useState, useEffect } from "react";
+import { FaUser, FaEnvelope, FaPhone, FaLock, FaUserShield, FaCheckCircle, FaExclamationCircle, FaMapMarkerAlt } from "react-icons/fa";
 
 export default function UserModal({ user, roles, branches = [], onClose, onSave }) {
-  // Nếu user không có email → đang thêm user mới → bật edit mode
   const isNewUser = !user?.email && !user?.phone;
-
   const [isEditing, setIsEditing] = useState(isNewUser);
   const [errorMessage, setErrorMessage] = useState("");
-
-  const canEditStatusOnly = isEditing; // chỉ cho phép sửa status
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
     role: "",
-    branchId: "",
+    branch: "", // Lưu ID chi nhánh
     password: "",
-    status: "ACTIVE",   // ⭐ thêm mặc định
+    status: "ACTIVE",
   });
 
-  // Load dữ liệu user vào form
   useEffect(() => {
     if (user) {
-      const newUser = !user.email && !user.phone;
-
       setFormData({
         fullName: user.fullName || "",
         email: user.email || "",
         phone: user.phone || "",
         role: user.roles?.[0]?.name || "",
-        branch: user.branchId || "",
+        branch: user.branchId || "", // Map từ branchId của user
         password: "",
         status: user.status || "ACTIVE",
       });
-
-      // ⭐ Nếu là user mới → cho nhập tất cả
-      if (newUser) {
-        setIsEditing(true);
-      } 
-      // ⭐ Nếu là user cũ → chỉ bật edit khi bấm nút Edit
-      else {
-        setIsEditing(user.__forceEditStatus === true);
-      }
-
+      setIsEditing(isNewUser || user.__forceEditStatus === true);
       setErrorMessage("");
     }
-  }, [user]);
+  }, [user, isNewUser]);
 
-  // Xử lý thay đổi input
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Kiểm tra hợp lệ
   const isValid =
     formData.fullName.trim() !== "" &&
     formData.email.trim() !== "" &&
     formData.phone.trim() !== "" &&
     formData.role.trim() !== "" &&
-    (formData.role !== "STAFF" || formData.branch.trim() !== "") &&
+    // Kiểm tra nếu là STAFF thì bắt buộc phải chọn branch
+    (formData.role !== "STAFF" || (formData.branch !== "" && formData.branch !== null)) &&
     (!isNewUser || formData.password.trim() !== "");
 
   const handleSaveClick = async () => {
     if (!isValid) return;
+    
+    // Đảm bảo gửi branchId đúng format cho backend
+    const dataToSave = {
+      ...formData,
+      branchId: formData.role === "STAFF" ? formData.branch : null
+    };
 
-    const result = await onSave(formData);
-
+    const result = await onSave(dataToSave);
     if (result?.error) {
       setErrorMessage(result.error);
       return;
     }
-
     setErrorMessage("");
     setIsEditing(false);
   };
 
   if (!user) return null;
 
+  const FieldLabel = ({ label, icon: Icon }) => (
+    <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider">
+      <Icon className="text-blue-500" size={14} />
+      {label}
+    </label>
+  );
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-[600px] max-w-2xl">
-        <h2 className="text-2xl font-bold mb-6">
-          {isNewUser ? "Thêm người dùng mới" : "Thông tin người dùng"}
-        </h2>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all overflow-hidden border border-white/20">
+        
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+            {isNewUser ? <FaUserShield /> : <FaUser />}
+            {isNewUser ? "Tạo tài khoản mới" : "Chi tiết người dùng"}
+          </h2>
+        </div>
 
-        <div className="space-y-4">
+        <div className="p-6 md:p-8">
           {errorMessage && (
-            <div className="text-red-600 font-semibold">{errorMessage}</div>
-          )}
-
-          {/* Full Name */}
-          <div>
-            <label className="block font-semibold mb-1">Full Name</label>
-            <input
-              type="text"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              disabled={!isNewUser && "fullName" !== "status"}   // ⭐
-              className="border p-2 rounded w-full"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block font-semibold mb-1">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={!isNewUser && "email" !== "status"}   // ⭐
-              className="border p-2 rounded w-full"
-            />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block font-semibold mb-1">Phone</label>
-            <input
-              type="text"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              disabled={!isNewUser && "phone" !== "status"}   // ⭐
-              className="border p-2 rounded w-full"
-            />
-          </div>
-
-          {/* Password chỉ khi thêm user */}
-          {isNewUser && (
-            <div>
-              <label className="block font-semibold mb-1">Password</label>
-              <input
-                autoComplete="off"
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={!isNewUser && "password" !== "status"}   // ⭐
-                className="border p-2 rounded w-full"
-              />
+            <div className="mb-6 flex items-center gap-3 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-red-700 italic">
+              <FaExclamationCircle />
+              <p className="text-sm font-medium">{errorMessage}</p>
             </div>
           )}
 
-          {/* Role */}
-          <div>
-            <label className="block font-semibold mb-1">Role</label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              disabled={!isNewUser && "role" !== "status"}   // ⭐
-              className="border p-2 rounded w-full"
-            >
-              <option value="">Chọn role</option>
-              {roles.map((r) => (
-                <option key={r.name} value={r.name}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status */}
-          <div>
-            <label className="block font-semibold mb-1">Status</label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              disabled={!isEditing}   // ⭐ chỉ mở khi bấm Chỉnh sửa
-
-              className="border p-2 rounded w-full"
-            >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="LOGIN_LOCKED">LOGIN LOCKED</option>
-              <option value="BOOKING_LOCKED">BOOKING LOCKED</option>
-            </select>
-          </div>
-
-          {/* Branch nếu role = STAFF */}
-          {formData.role === "STAFF" && (
-            <div>
-              <label className="block font-semibold mb-1">Branch</label>
-              <select
-                name="branch"
-                value={formData.branch}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <FieldLabel label="Họ và tên" icon={FaUser} />
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName}
                 onChange={handleChange}
-                disabled={!isNewUser && "branch" !== "status"}   // ⭐
-                className="border p-2 rounded w-full"
+                disabled={!isNewUser}
+                className={`w-full p-3 rounded-xl border outline-none transition-all ${!isNewUser ? "bg-gray-50 text-gray-500" : "focus:ring-2 focus:ring-blue-500/20"}`}
+              />
+            </div>
+
+            <div><FieldLabel label="Email" icon={FaEnvelope} /><input type="email" name="email" value={formData.email} onChange={handleChange} disabled={!isNewUser} className="w-full p-3 rounded-xl border disabled:bg-gray-50" /></div>
+            <div><FieldLabel label="Số điện thoại" icon={FaPhone} /><input type="text" name="phone" value={formData.phone} onChange={handleChange} disabled={!isNewUser} className="w-full p-3 rounded-xl border disabled:bg-gray-50" /></div>
+
+            {/* Role Selection */}
+            <div>
+              <FieldLabel label="Quyền hạn" icon={FaUserShield} />
+              <select
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                disabled={!isNewUser}
+                className="w-full p-3 rounded-xl border bg-white focus:ring-2 focus:ring-blue-500/20 outline-none disabled:bg-gray-50"
               >
-                <option value="">Chọn chi nhánh</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.branchName}
-                  </option>
+                <option value="">Chọn phân quyền</option>
+                {roles.map((r) => (
+                  <option key={r.name} value={r.name}>{r.name}</option>
                 ))}
               </select>
             </div>
-          )}
 
-          {/* Buttons */}
-          <div className="flex justify-end gap-3 mt-6">
-            {!isEditing ? (
-              <button
-                className="px-4 py-2 bg-yellow-500 text-white rounded"
-                onClick={() => setIsEditing(true)}
+            {/* Status Selection */}
+            <div>
+              <FieldLabel label="Trạng thái" icon={FaCheckCircle} />
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                disabled={!isEditing}
+                className={`w-full p-3 rounded-xl border outline-none ${isEditing ? "border-green-500 ring-2 ring-green-100" : "bg-gray-50 text-gray-500"}`}
               >
-                Chỉnh sửa
-              </button>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="LOGIN_LOCKED">LOGIN LOCKED</option>
+                <option value="BOOKING_LOCKED">BOOKING LOCKED</option>
+              </select>
+            </div>
+
+            {/* 🛡️ HIỂN THỊ CHI NHÁNH KHI CHỌN STAFF */}
+            {formData.role === "STAFF" && (
+              <div className="md:col-span-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <FieldLabel label="Chi nhánh làm việc" icon={FaMapMarkerAlt} />
+                <select
+                  name="branch"
+                  value={formData.branch}
+                  onChange={handleChange}
+                  disabled={!isNewUser} // Chỉ cho chọn khi tạo mới, user cũ thường cố định chi nhánh
+                  className={`w-full p-3 rounded-xl border outline-none ${!isNewUser ? "bg-gray-50 text-gray-500" : "border-blue-400 ring-2 ring-blue-50"}`}
+                >
+                  <option value="">-- Chọn chi nhánh gán cho nhân viên --</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      🏠 {b.branchName}
+                    </option>
+                  ))}
+                </select>
+                {isNewUser && <p className="text-xs text-blue-600 mt-1 italic">* Nhân viên bắt buộc phải thuộc một chi nhánh cụ thể.</p>}
+              </div>
+            )}
+
+            {isNewUser && (
+              <div className="md:col-span-2">
+                <FieldLabel label="Mật khẩu" icon={FaLock} />
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Nhập mật khẩu cho tài khoản mới"
+                  className="w-full p-3 rounded-xl border border-blue-200 outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex flex-col-reverse md:flex-row justify-end gap-3 mt-10 border-t pt-6">
+            <button type="button" className="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold hover:bg-gray-200" onClick={onClose}>Đóng</button>
+            {!isEditing ? (
+              <button type="button" className="px-6 py-3 bg-amber-500 text-white rounded-xl font-bold shadow-lg" onClick={() => setIsEditing(true)}>Chỉnh sửa trạng thái</button>
             ) : (
               <button
-                className={`px-4 py-2 rounded text-white ${
-                  isValid ? "bg-green-600" : "bg-gray-400 cursor-not-allowed"
-                }`}
+                type="button"
+                className={`px-8 py-3 rounded-xl font-bold text-white transition-all shadow-lg ${isValid ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}`}
                 onClick={handleSaveClick}
                 disabled={!isValid}
               >
-                Lưu
+                {isNewUser ? "Tạo người dùng" : "Lưu thay đổi"}
               </button>
             )}
-
-            <button
-              className="px-4 py-2 bg-gray-600 text-white rounded"
-              onClick={onClose}
-            >
-              Đóng
-            </button>
           </div>
         </div>
       </div>

@@ -143,7 +143,7 @@ const SearchBar = () => {
 
 
   return (
-    <div className="relative z-10 -translate-y-16 md:-translate-y-24">
+    <div className="relative z-10 -translate-y-14 md:-translate-y-20">
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg px-6 md:px-12 py-8">
         {/* Tabs */}
         <ul className="flex items-center justify-center mb-8 space-x-8">

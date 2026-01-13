@@ -36,7 +36,7 @@ export default function Home() {
       </section>
 
       {/* SearchBar đè lên phần dưới banner */}
-      <div className="relative -mt-20 z-30 w-full flex justify-center">
+      <div className="relative z-30 w-full flex justify-center">
         <div className="w-[90%] md:w-2/3">
           <SearchBar />
         </div>

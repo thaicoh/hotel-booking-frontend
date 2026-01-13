@@ -1,43 +1,45 @@
 import { useState, useEffect } from "react";
-import {
-  getBranches,
-  createBranch,
-  updateBranch,
-  getBranchesPaging,
+import { 
+  getBranchesPaging, 
+  createBranch, 
+  updateBranch, 
   updateBranchStatus 
 } from "../../api/branches";
-
 import { API_BASE_URL } from "../../config/api";
 
-
+// Components
 import BranchModal from "../../components/admin/BranchModal";
 import ConfirmModal from "../../components/common/ConfirmModal";
 
+// Icons
+import { 
+  FaPlus, FaSearch, FaSync, FaEye, 
+  FaEdit, FaTools, FaCheckCircle, 
+  FaBuilding, FaEnvelope, FaPhone, FaMapMarkerAlt 
+} from "react-icons/fa";
+
 export default function ManageBranches() {
+  // --- States ---
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Pagination
+  // Pagination & Filter
   const [page, setPage] = useState(0);
   const [size] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
-
-  // Filter
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  const [showConfirm, setShowConfirm] = useState(false);
+  // Modals & Pending Actions
+  const [showConfirmStatus, setShowConfirmStatus] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState(null);
+  const [pendingStatus, setPendingStatus] = useState(null);
 
-const [showConfirmStatus, setShowConfirmStatus] = useState(false);
-const [pendingBranch, setPendingBranch] = useState(null);
-const [pendingStatus, setPendingStatus] = useState(null);
-
-
+  // --- Logic Tải dữ liệu ---
   const loadBranches = async () => {
     try {
       setLoading(true);
       const res = await getBranchesPaging(page, size, search);
-
       if (res.data.code === 1000) {
         setBranches(res.data.result.items || []);
         setTotalPages(res.data.result.totalPages || 1);
@@ -49,18 +51,20 @@ const [pendingStatus, setPendingStatus] = useState(null);
     }
   };
 
+  useEffect(() => {
+    loadBranches();
+  }, [page, search]);
+
   const resetFilters = () => {
     setSearch("");
-    setPage(-1);   // ⭐ ép thay đổi
-    setTimeout(() => setPage(0), 0); // ⭐ đưa về 0 để load đúng
+    setPage(0);
+    loadBranches();
   };
 
+  // --- Logic Lưu (Thêm/Sửa) ---
   const handleSaveBranch = async (formData) => {
     try {
-      const isNew = !selectedBranch?.id; // ✅ DUY NHẤT 1 NGUỒN
-
-      console.log(selectedBranch.id)
-
+      const isNew = !selectedBranch?.id;
       const branchRequest = {
         branchName: formData.branchName,
         address: formData.address,
@@ -71,9 +75,7 @@ const [pendingStatus, setPendingStatus] = useState(null);
       const multipart = new FormData();
       multipart.append(
         "branchRequest",
-        new Blob([JSON.stringify(branchRequest)], {
-          type: "application/json",
-        })
+        new Blob([JSON.stringify(branchRequest)], { type: "application/json" })
       );
 
       if (formData.photoFile) {
@@ -92,203 +94,188 @@ const [pendingStatus, setPendingStatus] = useState(null);
       loadBranches();
       return { success: true };
     } catch (err) {
-
-        console.log("ERR:", err);
-
-        const code = err?.data?.code;
-        const message = err?.data?.message;
-
-        return { error: message ? `Lỗi ${code}: ${message}` : "Lỗi kết nối server" };
+      console.error("ERR:", err);
+      const message = err?.response?.data?.message || "Lỗi kết nối server";
+      return { error: message };
     }
   };
 
-
-  const handleDeleteBranch = async () => {
-    try {
-
-      if (res.data.code !== 1000) {
-        alert("Xóa chi nhánh thất bại");
-        return;
-      }
-
-      setShowConfirm(false);
-      loadBranches();
-    } catch (err) {
-      alert("Lỗi kết nối server");
-    }
-  };
-
+  // --- Logic Cập nhật trạng thái ---
   const handleUpdateBranchStatus = async (branchId, newStatus) => {
     try {
       await updateBranchStatus(branchId, newStatus);
-      loadBranches(); // reload danh sách
+      loadBranches();
     } catch (err) {
-      console.error("Update status failed:", err);
       alert("Không thể cập nhật trạng thái chi nhánh");
     }
   };
-  
-
-  useEffect(() => {
-    loadBranches();
-  }, [page, search]);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Quản lý chi nhánh</h1>
+    <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* --- Header --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-extrabold text-slate-800">Quản lý chi nhánh</h1>
+            <p className="text-slate-500 text-sm mt-1">Quản lý danh sách, thông tin và trạng thái vận hành</p>
+          </div>
+          <button
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
+            onClick={() => setSelectedBranch({ id: null })}
+          >
+            <FaPlus size={16} /> Thêm chi nhánh
+          </button>
+        </div>
 
-        <button
-          className="px-4 py-2 bg-green-600 text-white rounded"
-          onClick={() => setSelectedBranch({ id: null })}
-        >
-          + Thêm chi nhánh
-        </button>
-      </div>
+        {/* --- Thanh công cụ tìm kiếm --- */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-400"
+              placeholder="Tìm theo tên chi nhánh hoặc địa chỉ..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+            onClick={resetFilters}
+          >
+            <FaSync size={14} className={loading ? "animate-spin" : ""} /> Tải lại
+          </button>
+        </div>
 
-      {/* Search */}
-      <div className="bg-white shadow rounded p-4 mb-6 flex gap-4">
-        <input
-          className="border p-2 rounded flex-1"
-          placeholder="Tìm theo tên chi nhánh hoặc địa chỉ..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-
-        <button
-          className="px-4 py-2 bg-yellow-600 text-white rounded"
-          onClick={resetFilters}
-        >
-          Tải lại
-        </button>
-      </div>
-
-      {loading && <p>Đang tải dữ liệu...</p>}
-
-      {!loading && (
-        <div className="overflow-x-auto bg-white shadow rounded">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-left">
-                <th className="p-3 border">Tên chi nhánh</th>
-                <th className="p-3 border">Địa chỉ</th>
-                <th className="p-3 border">Email</th>
-                <th className="p-3 border">SĐT</th>
-                <th className="p-3 border">Ngày tạo</th>
-                <th className="p-3 border">Ảnh</th>
-                <th className="p-3 border">Trạng thái</th>
-                <th className="p-3 border">Hành động</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {branches.map((b) => (
-                <tr key={b.id} className="hover:bg-gray-50">
-                  <td className="p-3 border">{b.branchName}</td>
-                  <td className="p-3 border">{b.address}</td>
-                  <td className="p-3 border">{b.email}</td>
-                  <td className="p-3 border">{b.phone}</td>
-                  <td className="p-3 border">
-                    {b.createdAt
-                      ? new Date(b.createdAt).toLocaleString("vi-VN")
-                      : "—"}
-                  </td>
-                  <td className="p-3 border">
-                    {b.photoUrl ? (
-                      <img
-                        src={API_BASE_URL + "/" + b.photoUrl}
-                        alt={b.branchName}
-                        className="w-16 h-10 object-cover rounded"
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-
-                  <td className="p-3 border">
-                    {b.status === "ACTIVE" ? (
-                      <span className="px-2 py-1 bg-green-200 text-green-800 rounded">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded">
-                        Maintenance
-                      </span>
-                    )}
-                  </td>
-
-                  <td className="p-3 border">
-                    <button
-                      className="px-3 py-1 bg-blue-500 text-white rounded mr-2"
-                      onClick={() => setSelectedBranch(b)}
-                    >
-                      View
-                    </button>
-
-                    <button
-                      className="px-3 py-1 bg-yellow-500 text-white rounded mr-2"
-                      onClick={() => setSelectedBranch({ ...b })}
-
-                    >
-                      Edit
-                    </button>
-
-
-                    <button
-                      className={`px-3 py-1 rounded ${
-                        b.status === "ACTIVE"
-                          ? "bg-orange-500 text-white"
-                          : "bg-green-600 text-white"
-                      }`}
-                      onClick={() => {
-                        const newStatus = b.status === "ACTIVE" ? "MAINTENANCE" : "ACTIVE";
-                        setPendingBranch(b);
-                        setPendingStatus(newStatus);
-                        setShowConfirmStatus(true);
-                      }}
-                    >
-                      {b.status === "ACTIVE" ? "Set Maintenance" : "Set Active"}
-                    </button>
-
-                  </td>
+        {/* --- Bảng dữ liệu --- */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 text-xs font-bold uppercase tracking-wider">
+                  <th className="p-4 border-b">Chi nhánh</th>
+                  <th className="p-4 border-b">Liên hệ</th>
+                  <th className="p-4 border-b">Ngày tạo</th>
+                  <th className="p-4 border-b">Trạng thái</th>
+                  <th className="p-4 border-b text-center">Hành động</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="p-8 text-center text-slate-400">Đang tải dữ liệu...</td>
+                  </tr>
+                ) : branches.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="p-8 text-center text-slate-400">Không tìm thấy chi nhánh nào</td>
+                  </tr>
+                ) : (
+                  branches.map((b) => (
+                    <tr key={b.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="w-16 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 shadow-inner">
+                            {b.photoUrl ? (
+                              <img 
+                                src={`${API_BASE_URL}/${b.photoUrl}`} 
+                                alt="" 
+                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" 
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300"><FaBuilding size={20} /></div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800">{b.branchName}</div>
+                            <div className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1">
+                              <FaMapMarkerAlt size={10} /> {b.address}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-xs text-slate-600 space-y-1">
+                        <div className="flex items-center gap-2"><FaEnvelope className="text-slate-400" size={10}/> {b.email}</div>
+                        <div className="flex items-center gap-2"><FaPhone className="text-slate-400" size={10}/> {b.phone}</div>
+                      </td>
+                      <td className="p-4 text-sm text-slate-500 font-medium">
+                        {b.createdAt ? new Date(b.createdAt).toLocaleDateString("vi-VN") : "—"}
+                      </td>
+                      <td className="p-4">
+                        {b.status === "ACTIVE" ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-tight">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Đang hoạt động
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-tight">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Đang bảo trì
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex justify-center items-center gap-1">
+                          <button 
+                            onClick={() => setSelectedBranch(b)} 
+                            className="p-2.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                            title="Xem chi tiết"
+                          >
+                            <FaEye size={16} />
+                          </button>
+                          <button 
+                            onClick={() => setSelectedBranch({...b})} 
+                            className="p-2.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" 
+                            title="Chỉnh sửa"
+                          >
+                            <FaEdit size={16} />
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const newStatus = b.status === "ACTIVE" ? "MAINTENANCE" : "ACTIVE";
+                              setPendingBranch(b); 
+                              setPendingStatus(newStatus); 
+                              setShowConfirmStatus(true);
+                            }}
+                            className={`p-2.5 rounded-lg transition-colors ${
+                              b.status === "ACTIVE" ? "text-rose-500 hover:bg-rose-50" : "text-emerald-600 hover:bg-emerald-50"
+                            }`}
+                            title={b.status === "ACTIVE" ? "Đặt bảo trì" : "Kích hoạt lại"}
+                          >
+                            {b.status === "ACTIVE" ? <FaTools size={16} /> : <FaCheckCircle size={16} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-          {/* Pagination */}
-          <div className="flex justify-between items-center p-4">
-            <button
-              disabled={page === 0}
-              onClick={() => setPage(page - 1)}
-              className={`px-4 py-2 rounded ${
-                page === 0
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-blue-500 text-white"
-              }`}
-            >
-              Previous
-            </button>
-
-            <span>
-              Trang <strong>{page + 1}</strong> / {totalPages}
+          {/* --- Pagination --- */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <span className="text-sm text-slate-600">
+              Trang <span className="font-bold text-slate-800">{page + 1}</span> / <span className="font-bold text-slate-800">{totalPages}</span>
             </span>
-
-            <button
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage(page + 1)}
-              className={`px-4 py-2 rounded ${
-                page + 1 >= totalPages
-                  ? "bg-gray-300 cursor-not-allowed"
-                  : "bg-blue-500 text-white"
-              }`}
-            >
-              Next
-            </button>
+            <div className="flex gap-2">
+              <button
+                disabled={page === 0}
+                onClick={() => setPage(page - 1)}
+                className="px-5 py-2 text-sm font-semibold bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                Trước
+              </button>
+              <button
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage(page + 1)}
+                className="px-5 py-2 text-sm font-semibold bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                Tiếp theo
+              </button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
+      {/* --- Modals --- */}
       {selectedBranch && (
         <BranchModal
           branch={selectedBranch}
@@ -297,26 +284,19 @@ const [pendingStatus, setPendingStatus] = useState(null);
         />
       )}
 
-      {showConfirm && (
-        <ConfirmModal
-          title="Xác nhận xóa"
-          message={`Bạn có chắc muốn xóa chi nhánh \"${branchToDelete.branchName}\" không?`}
-          onCancel={() => setShowConfirm(false)}
-          onConfirm={handleDeleteBranch}
-        />
-      )}
-
       {showConfirmStatus && pendingBranch && (
         <ConfirmModal
-          title="Xác nhận thay đổi trạng thái"
-          message={`Bạn có chắc muốn chuyển chi nhánh "${pendingBranch.branchName}" sang trạng thái ${pendingStatus}?`}
+          title="Thay đổi trạng thái"
+          message={`Bạn có chắc muốn chuyển chi nhánh "${pendingBranch.branchName}" sang trạng thái ${
+            pendingStatus === "ACTIVE" ? "HOẠT ĐỘNG" : "BẢO TRÌ"
+          }?`}
           onCancel={() => setShowConfirmStatus(false)}
           onConfirm={() => {
             handleUpdateBranchStatus(pendingBranch.id, pendingStatus);
             setShowConfirmStatus(false);
           }}
         />
-      )}   
+      )} 
     </div>
   );
 }

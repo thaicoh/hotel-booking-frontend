@@ -33,3 +33,10 @@ export const createRoom = (roomData) => {
 export const updateRoom = (roomId, roomData) => {
   return axiosInstance.put(`${API_BASE_URL}/room/${roomId}`, roomData);
 };
+
+
+
+
+export const getRoomsByBranch = (branchId) => {
+  return axiosInstance.get(`${API_BASE_URL}/room/branch/${branchId}`);
+};
