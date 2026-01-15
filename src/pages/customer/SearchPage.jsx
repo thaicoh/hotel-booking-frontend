@@ -1,293 +1,79 @@
 import HotelCard from "../../components/customer/HotelCard";
 import PriceRangeSlider from "../../components/customer/PriceRangeSlider";
-import { useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
 import { searchHotels } from "../../api/branches";
 import { API_BASE_URL } from "../../config/api";
-import { useSearchParams } from "react-router-dom";
 
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-// Bạn có thể import icon nếu muốn, ví dụ từ react-icons hoặc heroicons
-// import { FiSearch, FiCalendar, FiClock, FiMapPin } from "react-icons/fi"; 
 
 export default function SearchPage() {
-    const routerLocation = useLocation();
-
+    const [searchParams, setSearchParams] = useSearchParams();
     const [hotels, setHotels] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const buildCheckInOut = ({ bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours }) => {
-        if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
+    // --- UTILS XỬ LÝ NGÀY THÁNG (LOGIC SEARCHBAR) ---
 
-        if (bookingTypeCode === "HOUR") {
-            const checkIn = (checkInDate && checkInTime) ? `${checkInDate}T${checkInTime}:00` : null;
-            return { checkIn, checkOut: null, hours: hours ? Number(hours) : null };
-        }
-
-        if (bookingTypeCode === "NIGHT") {
-            const checkIn = checkInDate ? `${checkInDate}T21:00:00` : null;
-            const checkOut = checkOutDate ? `${checkOutDate}T12:00:00` : null;
-            return { checkIn, checkOut, hours: null };
-        }
-
-        if (bookingTypeCode === "DAY") {
-            const checkIn = checkInDate ? `${checkInDate}T14:00:00` : null;
-            const checkOut = checkOutDate ? `${checkOutDate}T12:00:00` : null;
-            return { checkIn, checkOut, hours: null };
-        }
-
-        return { checkIn: null, checkOut: null, hours: null };
-    };
-
-    const [searchParams, setSearchParams] = useSearchParams();
-
-    const payload = useMemo(() => {
-        const bookingTypeCode = searchParams.get("bookingTypeCode") || null;
-        const location = searchParams.get("location") || null;
-        const checkInDate = searchParams.get("checkInDate") || null;
-        const checkOutDate = searchParams.get("checkOutDate") || null;
-        const checkInTime = searchParams.get("checkInTime") || null;
-        const hours = searchParams.get("hours") || null;
-        const minPrice = searchParams.get("minPrice");
-        const maxPrice = searchParams.get("maxPrice");
-
-        const { checkIn, checkOut, hours: hoursNum } = buildCheckInOut({
-            bookingTypeCode,
-            checkInDate,
-            checkOutDate,
-            checkInTime,
-            hours,
-        });
-
-        return {
-            bookingTypeCode,
-            location,
-            checkIn,
-            checkOut,
-            hours: hoursNum,
-            minPrice: minPrice ? Number(minPrice) : null,
-            maxPrice: maxPrice ? Number(maxPrice) : null,
-        };
-    }, [searchParams]);
-
-    const toYMD = (d) => {
-        if (!d) return "";
-        if (typeof d.format === "function") return d.format("YYYY-MM-DD");
-        if (d.target && d.target.value) return d.target.value;
-        if (typeof d === "string") return d.split("T")[0];
-        if (d instanceof Date) return d.toISOString().split("T")[0];
-        const date = new Date(d);
-        return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
-    };
-
-    const toYMDLocal = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
+    // 1. Chuyển Date Object -> "YYYY-MM-DD"
+    const toYMD = (date) => {
+        if (!date) return "";
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
         return `${year}-${month}-${day}`;
     };
 
-    const fromYMD = (s) => (s ? new Date(s) : null);
-
-    const getNextDay = (dateStr) => {
-        if (!dateStr) return "";
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() + 1);
-        return d.toISOString().split("T")[0];
+    // 2. Parse chuỗi URL (có thể có T hoặc không) về Date Object chuẩn (tránh lỗi lùi 1 ngày)
+    // Chỉ lấy phần YYYY-MM-DD để tạo Date, bỏ qua giờ
+    const parseDateFromParams = (dateStr) => {
+        if (!dateStr) return null;
+        try {
+            // Cắt bỏ phần giờ nếu có (VD: 2023-10-20T14:00:00 -> 2023-10-20)
+            const cleanDateStr = dateStr.split("T")[0]; 
+            const [y, m, d] = cleanDateStr.split("-").map(Number);
+            return new Date(y, m - 1, d); // Tạo Date local chính xác
+        } catch (e) {
+            return null;
+        }
     };
 
-    const setParam = (key, value) => {
-        const p = new URLSearchParams(searchParams);
-        if (value === null || value === undefined || value === "") p.delete(key);
-        else p.set(key, value);
-        setSearchParams(p, { replace: true });
+    // 3. Lấy ngày hôm sau (trả về chuỗi YYYY-MM-DD)
+    const getNextDayYMD = (dateObj) => {
+        if (!dateObj) return "";
+        const nextDay = new Date(dateObj);
+        nextDay.setDate(nextDay.getDate() + 1);
+        return toYMD(nextDay);
     };
 
-    const replaceParams = (updater) => {
-        const p = new URLSearchParams(searchParams);
-        updater(p);
-        setSearchParams(p, { replace: true });
-    };
-
-    const formatLocalDateTime = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        const hour = String(d.getHours()).padStart(2, "0");
-        const minute = String(d.getMinutes()).padStart(2, "0");
-        const second = String(d.getSeconds()).padStart(2, "0");
-        return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-    };
-
+    // --- STATE TỪ URL ---
     const bookingTypeCode = searchParams.get("bookingTypeCode") || "HOUR";
-    const keyword = searchParams.get("location") || "";
-    const checkInDate = searchParams.get("checkInDate") || "";
-    const checkOutDate = searchParams.get("checkOutDate") || "";
+    const locationKeyword = searchParams.get("location") || "";
+    
+    // Lấy giá trị thô từ URL để hiển thị lên DatePicker (dùng hàm parse an toàn)
+    const checkInDateParam = searchParams.get("checkInDate");
+    const checkOutDateParam = searchParams.get("checkOutDate");
+    
     const checkInTime = searchParams.get("checkInTime") || "";
     const hours = searchParams.get("hours") || "";
-
-    const handlePickCheckIn = (start, end) => {
-        const ymdStart = start ? toYMD(start) : "";
-        const ymdEnd = end ? toYMD(end) : "";
-
-        replaceParams((p) => {
-            if (!ymdStart) {
-                p.delete("checkInDate");
-                p.delete("checkOutDate");
-                return;
-            }
-
-            const checkIn = `${ymdStart}T14:00:00`;
-            p.set("checkInDate", checkIn);
-
-            if (bookingTypeCode === "HOUR") {
-                if (checkInTime && hours) {
-                    const checkInObj = new Date(`${ymdStart}T${checkInTime}:00`);
-                    const checkOutObj = new Date(checkInObj.getTime() + hours * 60 * 60 * 1000);
-                    p.set("checkInDate", formatLocalDateTime(checkInObj));
-                    p.set("checkOutDate", formatLocalDateTime(checkOutObj));
-                }
-            }
-
-            if (bookingTypeCode === "NIGHT") {
-                const nextDay = getNextDay(ymdStart);
-                p.set("checkOutDate", `${nextDay}T12:00:00`);
-            }
-
-            const checkInObj = new Date(`${ymdStart}T14:00:00`);
-            p.set("checkInDate", formatLocalDateTime(checkInObj));
-
-            if (bookingTypeCode === "DAY") {
-                if (ymdEnd) {
-                    const checkOutObj = new Date(`${ymdEnd}T12:00:00`);
-                    checkOutObj.setDate(checkOutObj.getDate());
-                    p.set("checkOutDate", formatLocalDateTime(checkOutObj));
-                } else {
-                    p.delete("checkOutDate");
-                }
-            }
-        });
-    };
-
-    const handleChangeType = (code) => {
-        replaceParams((p) => {
-            p.set("bookingTypeCode", code);
-            if (code !== "HOUR") {
-                p.delete("checkInTime");
-                p.delete("hours");
-            }
-            if (code === "HOUR") {
-                p.delete("checkOutDate");
-            }
-            if (code === "NIGHT") {
-                if (p.get("checkInDate")) {
-                    const onlyDate = p.get("checkInDate").split("T")[0];
-                    const checkOutWithTime = `${getNextDay(onlyDate)}T12:00:00`;
-                    p.set("checkOutDate", checkOutWithTime);
-                } else {
-                    p.delete("checkOutDate");
-                }
-            }
-            if (code === "DAY") {
-                if (p.get("checkInDate")) {
-                    const onlyDate = p.get("checkInDate").split("T")[0];
-                    const checkOutWithTime = `${getNextDay(onlyDate)}T12:00:00`;
-                    p.set("checkOutDate", checkOutWithTime);
-                }
-            }
-        });
-    };
-
+    
     const minPrice = Number(searchParams.get("minPrice") || 20000);
     const maxPrice = Number(searchParams.get("maxPrice") || 10000000);
+    // State lưu lại kết quả của lần search cuối cùng để đồng bộ với Card
+    const [lastSearchPayload, setLastSearchPayload] = useState(null);
 
-    const handlePriceChange = (newValues) => {
-        replaceParams((p) => {
-            p.set("minPrice", String(newValues[0]));
-            p.set("maxPrice", String(newValues[1]));
-        });
-    };
-
-    const handleUpdateSearch = () => {
-        if (bookingTypeCode === "HOUR" && (!checkInTime || !hours)) {
-            alert("Vui lòng chọn giờ nhận phòng và số giờ ở.");
-            return;
-        }
-
-        let updatedCheckIn = checkInDate;
-        let updatedCheckOut = checkOutDate;
-
-        if (bookingTypeCode === "HOUR" && checkInDate && checkInTime && hours) {
-            const onlyDate = checkInDate.split("T")[0];
-            const checkInStr = `${onlyDate}T${checkInTime}:00`;
-            const checkInObj = new Date(checkInStr);
-            const checkOutObj = new Date(checkInObj.getTime() + Number(hours) * 60 * 60 * 1000);
-            const checkOutStr = formatLocalDateTime(checkOutObj);
-
-            updatedCheckIn = formatLocalDateTime(checkInObj);
-            updatedCheckOut = checkOutStr;
-        }
-
-        if (bookingTypeCode === "NIGHT") {
-            if (checkInDate) {
-                const onlyDate = checkInDate.split("T")[0];
-                const checkInObj = new Date(`${onlyDate}T21:00:00`);
-                const checkOutObj = new Date(`${getNextDay(onlyDate)}T12:00:00`);
-
-                updatedCheckIn = formatLocalDateTime(checkInObj);
-                updatedCheckOut = formatLocalDateTime(checkOutObj);
-            }
-        }
-
-        if (bookingTypeCode === "DAY") {
-            if (checkInDate) {
-                const onlyDateIn = checkInDate.split("T")[0];
-                const checkInObj = new Date(`${onlyDateIn}T14:00:00`);
-                updatedCheckIn = formatLocalDateTime(checkInObj);
-
-                if (checkOutDate) {
-                    const onlyDateOut = checkOutDate.split("T")[0];
-                    const checkOutObj = new Date(`${onlyDateOut}T12:00:00`);
-                    updatedCheckOut = formatLocalDateTime(checkOutObj);
-                } else {
-                    updatedCheckOut = "";
-                }
-            }
-        }
-
-        const params = new URLSearchParams(searchParams);
-        params.set("bookingTypeCode", bookingTypeCode);
-        params.set("location", keyword);
-        params.set("checkInDate", updatedCheckIn);
-        params.set("checkOutDate", updatedCheckOut);
-        params.set("minPrice", minPrice);
-        params.set("maxPrice", maxPrice);
-
-        if (checkInTime) params.set("checkInTime", checkInTime);
-        if (hours) params.set("hours", String(Number(hours)));
-
-        setSearchParams(params, { replace: true });
-
-        fetchHotels({
-            bookingTypeCode,
-            location: keyword,
-            checkIn: updatedCheckIn,
-            checkOut: updatedCheckOut,
-            checkInTime,
-            hours: Number(hours),
-            minPrice,
-            maxPrice,
-        });
-    };
-
-    const fetchHotels = async (payload) => {
+    // --- LOGIC GỌI API ---
+    
+    const fetchHotelsData = async (payload) => {
         setLoading(true);
         setError(null);
         try {
             const res = await searchHotels(payload);
             setHotels(res.data?.result || []);
+
+            // Lưu lại thông tin loại phòng và thời gian của lần search này
+            setLastSearchPayload(payload);
         } catch (err) {
             const msg = err?.data?.message || err?.message || "Search failed";
             setError(msg);
@@ -297,32 +83,178 @@ export default function SearchPage() {
         }
     };
 
+    // Tự động gọi API khi vào trang hoặc reload trang (dựa vào URL hiện tại)
     useEffect(() => {
-        const params = new URLSearchParams(searchParams);
-        const checkIn = params.get("checkInDate");
-        const checkOut = params.get("checkOutDate");
-        const normalize = (s) => s?.replace(/T14:00:00T14:00:00/, "T14:00:00");
+        const params = Object.fromEntries(new URLSearchParams(window.location.search));
+        
+        // Chuẩn hóa dữ liệu trước khi gọi API lần đầu
+        const payload = {
+            bookingTypeCode: params.bookingTypeCode || "HOUR",
+            location: params.location || "",
+            checkIn: params.checkInDate || null,
+            checkOut: params.checkOutDate || null,
+            checkInTime: params.checkInTime || null,
+            hours: params.hours ? Number(params.hours) : null,
+            minPrice: params.minPrice ? Number(params.minPrice) : null,
+            maxPrice: params.maxPrice ? Number(params.maxPrice) : null,
+        };
 
-        fetchHotels({
-            bookingTypeCode: params.get("bookingTypeCode"),
-            location: params.get("location"),
-            checkIn: normalize(checkIn),
-            checkOut: normalize(checkOut),
-            minPrice: params.get("minPrice"),
-            maxPrice: params.get("maxPrice"),
+        fetchHotelsData(payload);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Chỉ chạy 1 lần khi mount, sau đó việc update sẽ do nút "Cập nhật" lo
+
+    // --- HANDLERS ---
+
+    const updateParams = (newParams) => {
+        const nextParams = new URLSearchParams(searchParams);
+        Object.keys(newParams).forEach(key => {
+            if (newParams[key] === null || newParams[key] === undefined || newParams[key] === "") {
+                nextParams.delete(key);
+            } else {
+                nextParams.set(key, newParams[key]);
+            }
         });
-    }, []);
+        setSearchParams(nextParams, { replace: true });
+    };
 
-    // Common CSS classes for inputs
+    // Hàm xử lý chọn ngày - Logic quan trọng: Chỉ ghép giờ khi set vào URL
+    const handleDateChange = (date, field) => {
+        if (!date) {
+            updateParams({ [field]: null });
+            return;
+        }
+
+        const ymd = toYMD(date);
+        let fullDateTime = "";
+
+        // Logic ghép giờ tùy theo loại booking
+        if (field === "checkInDate") {
+            if (bookingTypeCode === "HOUR") {
+                // Với HOUR, CheckInDate giữ base ngày, giờ được ghép từ checkInTime sau
+                // Nhưng để API hiểu, ta tạm để mặc định hoặc lấy giờ hiện tại, 
+                // tuy nhiên logic searchbar thường để T00:00 hoặc T(giờ đã chọn)
+                const timePart = checkInTime ? `${checkInTime}:00` : "14:00:00"; 
+                fullDateTime = `${ymd}T${timePart}`;
+                
+                // Nếu đang là HOUR, đổi ngày checkin không tự đổi checkout (vì tính theo hours)
+                updateParams({ checkInDate: fullDateTime });
+            } 
+            else if (bookingTypeCode === "NIGHT") {
+                fullDateTime = `${ymd}T21:00:00`;
+                const nextDayYMD = getNextDayYMD(date);
+                updateParams({ 
+                    checkInDate: fullDateTime,
+                    checkOutDate: `${nextDayYMD}T12:00:00`
+                });
+            } 
+            else if (bookingTypeCode === "DAY") {
+                fullDateTime = `${ymd}T14:00:00`;
+                // Nếu ngày checkin > checkout hiện tại, clear checkout
+                const currentCheckOut = parseDateFromParams(checkOutDateParam);
+                if (currentCheckOut && date >= currentCheckOut) {
+                    updateParams({ checkInDate: fullDateTime, checkOutDate: null });
+                } else {
+                    updateParams({ checkInDate: fullDateTime });
+                }
+            }
+        } 
+        else if (field === "checkOutDate") {
+            // Checkout luôn là 12:00 trưa
+            fullDateTime = `${ymd}T12:00:00`;
+            updateParams({ checkOutDate: fullDateTime });
+        }
+    };
+
+    const handleUpdateSearch = () => {
+        // 1. Validate logic cơ bản
+        if (bookingTypeCode === "HOUR" && (!checkInTime || !hours)) {
+            alert("Vui lòng chọn giờ nhận phòng và số giờ ở.");
+            return;
+        }
+
+        // 2. Chuẩn bị payload chuẩn xác từ URL Params hiện tại (đã được update bởi DatePicker)
+        // Lưu ý: searchParams lúc này đã chứa chuỗi ISO đầy đủ do handleDateChange set vào
+        
+        let finalCheckIn = searchParams.get("checkInDate");
+        let finalCheckOut = searchParams.get("checkOutDate");
+
+        // Logic fix lại CheckIn/Out cho HOUR nếu user thay đổi giờ/hours mà chưa cập nhật date string
+        if (bookingTypeCode === "HOUR") {
+            // Lấy ngày gốc từ param (cắt T lấy YMD)
+            const rawDate = searchParams.get("checkInDate"); 
+            if (rawDate && checkInTime && hours) {
+                const ymd = rawDate.split("T")[0];
+                const startStr = `${ymd}T${checkInTime}:00`;
+                
+                // Tính checkout dựa trên số giờ
+                const startDate = new Date(startStr);
+                const endDate = new Date(startDate.getTime() + Number(hours) * 60 * 60 * 1000);
+                
+                // Format lại thành chuỗi ISO local
+                const formatISO = (d) => {
+                    const pad = n => String(n).padStart(2,'0');
+                    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                };
+
+                finalCheckIn = startStr; // VD: 2023-10-20T14:00:00
+                finalCheckOut = formatISO(endDate);
+                
+                // Cập nhật lại URL cho đúng
+                updateParams({
+                    checkInDate: finalCheckIn,
+                    checkOutDate: finalCheckOut
+                });
+            }
+        }
+
+        // 3. Gọi API
+        fetchHotelsData({
+            bookingTypeCode,
+            location: locationKeyword,
+            checkIn: finalCheckIn,
+            checkOut: finalCheckOut,
+            checkInTime,
+            hours: hours ? Number(hours) : null,
+            minPrice,
+            maxPrice
+        });
+    };
+
+    const handleChangeType = (code) => {
+        // Reset logic khi chuyển tab
+        const currentCheckInRaw = searchParams.get("checkInDate");
+        const dateObj = parseDateFromParams(currentCheckInRaw) || new Date(); // Giữ ngày hiện tại nếu có
+        const ymd = toYMD(dateObj);
+        
+        const newParams = { bookingTypeCode: code };
+
+        if (code === "HOUR") {
+            newParams.checkInDate = `${ymd}T${checkInTime || '14:00'}:00`; // Giữ ngày, ghép giờ tạm
+            newParams.checkOutDate = null; // HOUR tính động
+        } else if (code === "NIGHT") {
+            newParams.checkInTime = null;
+            newParams.hours = null;
+            newParams.checkInDate = `${ymd}T21:00:00`;
+            newParams.checkOutDate = `${getNextDayYMD(dateObj)}T12:00:00`;
+        } else if (code === "DAY") {
+            newParams.checkInTime = null;
+            newParams.hours = null;
+            newParams.checkInDate = `${ymd}T14:00:00`;
+            newParams.checkOutDate = `${getNextDayYMD(dateObj)}T12:00:00`; // Default 1 ngày
+        }
+
+        updateParams(newParams);
+    };
+
+    // CSS Classes
     const inputClass = "w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all duration-200 hover:bg-white";
     const labelClass = "block text-sm font-semibold text-gray-700 mb-1.5";
 
     return (
         <div className="min-h-screen bg-gray-50 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
-            {/* Tăng gap và điều chỉnh tỷ lệ cột: lg:12 cột -> sidebar chiếm 5, main chiếm 7 */}
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 
-                {/* --- SIDEBAR FILTER (Đã tăng độ rộng) --- */}
+                {/* --- SIDEBAR FILTER --- */}
                 <aside className="lg:col-span-5 xl:col-span-4 space-y-6 bg-white border border-gray-100 p-6 rounded-xl shadow-lg lg:sticky lg:top-24">
                     <div className="flex items-center justify-between border-b pb-4 mb-4">
                         <h2 className="font-bold text-xl text-gray-800 flex items-center gap-2">
@@ -333,7 +265,7 @@ export default function SearchPage() {
                         </h2>
                     </div>
 
-                    {/* Location Input */}
+                    {/* Location */}
                     <div>
                         <label className={labelClass}>Khu vực / Tên khách sạn</label>
                         <div className="relative">
@@ -344,15 +276,15 @@ export default function SearchPage() {
                             </span>
                             <input
                                 type="text"
-                                value={keyword}
-                                onChange={(e) => setParam("location", e.target.value)}
+                                value={locationKeyword}
+                                onChange={(e) => updateParams({ location: e.target.value })}
                                 placeholder="Nhập thành phố, quận hoặc tên khách sạn..."
                                 className={`${inputClass} pl-10`}
                             />
                         </div>
                     </div>
 
-                    {/* Booking Type Tabs */}
+                    {/* Booking Type */}
                     <div>
                         <label className={labelClass}>Loại đặt phòng</label>
                         <div className="flex p-1.5 bg-gray-100 rounded-xl">
@@ -377,7 +309,7 @@ export default function SearchPage() {
                         </div>
                     </div>
 
-                    {/* Dynamic Date/Time Inputs */}
+                    {/* Date Logic */}
                     <div className="space-y-4 bg-orange-50/30 p-4 rounded-xl border border-orange-100">
                         <label className={labelClass}>Chi tiết thời gian</label>
 
@@ -386,25 +318,31 @@ export default function SearchPage() {
                             <div className="space-y-4">
                                 <div className="relative">
                                     <DatePicker
-                                        selected={checkInDate ? new Date(checkInDate) : new Date()}
-                                        onChange={(date) => {
-                                            setParam("checkInDate", toYMDLocal(date));
-                                            handlePickCheckIn(date, checkOutDate ? new Date(checkOutDate) : null);
-                                        }}
+                                        selected={parseDateFromParams(checkInDateParam) || new Date()}
+                                        onChange={(date) => handleDateChange(date, "checkInDate")}
                                         minDate={new Date()}
                                         dateFormat="dd/MM/yyyy"
                                         className={inputClass}
                                         wrapperClassName="w-full"
+                                        placeholderText="Chọn ngày"
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <select value={checkInTime} onChange={(e) => setParam("checkInTime", e.target.value)} className={inputClass}>
+                                    <select 
+                                        value={checkInTime} 
+                                        onChange={(e) => updateParams({ checkInTime: e.target.value })} 
+                                        className={inputClass}
+                                    >
                                         <option value="">Giờ đến</option>
-                                        {["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"].map((t) => (
+                                        {["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"].map((t) => (
                                             <option key={t} value={t}>{t}</option>
                                         ))}
                                     </select>
-                                    <select value={hours} onChange={(e) => setParam("hours", e.target.value)} className={inputClass}>
+                                    <select 
+                                        value={hours} 
+                                        onChange={(e) => updateParams({ hours: e.target.value })} 
+                                        className={inputClass}
+                                    >
                                         <option value="">Số giờ</option>
                                         {[1, 2, 3, 4, 5, 6].map((h) => (
                                             <option key={h} value={String(h)}>{h} giờ</option>
@@ -418,18 +356,19 @@ export default function SearchPage() {
                         {bookingTypeCode === "NIGHT" && (
                             <div className="space-y-4">
                                 <DatePicker
-                                    selected={checkInDate ? new Date(checkInDate) : new Date()}
-                                    onChange={handlePickCheckIn}
+                                    selected={parseDateFromParams(checkInDateParam) || new Date()}
+                                    onChange={(date) => handleDateChange(date, "checkInDate")}
                                     minDate={new Date()}
                                     dateFormat="dd/MM/yyyy"
                                     className={inputClass}
                                     wrapperClassName="w-full"
+                                    placeholderText="Chọn ngày nhận"
                                 />
                                 <div className="text-sm bg-white border border-orange-100 rounded-lg p-3 flex justify-between items-center shadow-sm">
                                     <div>
                                         <span className="text-[10px] text-orange-800 uppercase font-black block">Trả phòng dự kiến</span>
                                         <span className="font-bold text-gray-800">
-                                            {checkOutDate ? new Date(checkOutDate).toLocaleDateString('vi-VN') : "—"}
+                                            {checkOutDateParam ? parseDateFromParams(checkOutDateParam).toLocaleDateString('vi-VN') : "—"}
                                         </span>
                                     </div>
                                     <div className="text-right">
@@ -445,11 +384,8 @@ export default function SearchPage() {
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">Ngày nhận phòng</label>
                                     <DatePicker
-                                        selected={checkInDate ? new Date(checkInDate) : new Date()}
-                                        onChange={(date) => {
-                                            setParam("checkInDate", toYMDLocal(date));
-                                            handlePickCheckIn(date, checkOutDate ? new Date(checkOutDate) : null);
-                                        }}
+                                        selected={parseDateFromParams(checkInDateParam) || new Date()}
+                                        onChange={(date) => handleDateChange(date, "checkInDate")}
                                         minDate={new Date()}
                                         dateFormat="dd/MM/yyyy"
                                         className={inputClass}
@@ -459,13 +395,14 @@ export default function SearchPage() {
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">Ngày trả phòng</label>
                                     <DatePicker
-                                        selected={checkOutDate ? new Date(checkOutDate.split("T")[0]) : null}
-                                        onChange={(date) => {
-                                            const ymd = date ? date.toISOString().split("T")[0] : "";
-                                            setParam("checkOutDate", ymd);
-                                            handlePickCheckIn(checkInDate ? new Date(checkInDate.split("T")[0]) : null, date);
-                                        }}
-                                        minDate={checkInDate ? new Date(new Date(checkInDate.split("T")[0]).getTime() + 86400000) : new Date()}
+                                        selected={parseDateFromParams(checkOutDateParam)}
+                                        onChange={(date) => handleDateChange(date, "checkOutDate")}
+                                        // Min date của checkout phải là ngày sau ngày checkin
+                                        minDate={
+                                            checkInDateParam 
+                                            ? new Date(parseDateFromParams(checkInDateParam).getTime() + 86400000) 
+                                            : new Date()
+                                        }
                                         dateFormat="dd/MM/yyyy"
                                         placeholderText="Chọn ngày trả"
                                         className={inputClass}
@@ -482,7 +419,7 @@ export default function SearchPage() {
                         <div className="px-2 pt-4 pb-2">
                             <PriceRangeSlider
                                 values={[minPrice, maxPrice]}
-                                onChange={handlePriceChange}
+                                onChange={(values) => updateParams({ minPrice: String(values[0]), maxPrice: String(values[1]) })}
                             />
                         </div>
                     </div>
@@ -499,10 +436,8 @@ export default function SearchPage() {
                     </button>
                 </aside>
 
-                {/* --- MAIN RESULTS AREA ( lg:col-span-7 ) --- */}
+                {/* --- MAIN RESULTS AREA --- */}
                 <main className="lg:col-span-7 xl:col-span-8 space-y-6">
-                    {/* ... phần hiển thị HotelCard ... */}
-                    {/* Header Results */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                         <div>
                             <h2 className="font-bold text-xl text-gray-800">Kết quả tìm kiếm</h2>
@@ -578,14 +513,15 @@ export default function SearchPage() {
                                     promo={h.roomTypeName ? `Loại phòng: ${h.roomTypeName}` : ""}
                                     price={`${Number(h.minPrice || 0).toLocaleString("vi-VN")} ${h.currency || "VND"}`}
                                     rooms={0}
-                                    checkInDate={checkInDate}
-                                    checkOutDate={checkOutDate}
-                                    bookingTypeCode={bookingTypeCode}
+
+                                    // Dùng thông tin từ payload đã search thành công
+                                    bookingTypeCode={lastSearchPayload?.bookingTypeCode || "HOUR"}
+                                    checkInDate={lastSearchPayload?.checkIn}
+                                    checkOutDate={lastSearchPayload?.checkOut}
                                 />
                             </div>
                         ))}
                     </div>
-
                 </main>
             </div>
         </div>

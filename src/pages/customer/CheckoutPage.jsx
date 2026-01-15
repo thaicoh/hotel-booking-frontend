@@ -204,7 +204,7 @@ const CheckoutPage = () => {
 
               // ✅ PAY_AT_HOTEL -> xong luôn
               alert("🎉 Đặt phòng thành công!");
-              navigate("/");
+              navigate("/my-bookings");
         } else {
             alert(`Lỗi: ${res.data.message || "Đặt phòng thất bại."}`);
             navigate(-1);

@@ -45,10 +45,10 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8" ref={menuRef}>
-            <button className="flex items-center gap-2 text-gray-600 hover:text-orange-600 font-medium transition">
+            {/* <button className="flex items-center gap-2 text-gray-600 hover:text-orange-600 font-medium transition">
               <FaGlobe className="text-sm" />
               <span>VN</span>
-            </button>
+            </button> */}
 
             {!token ? (
               <div className="flex items-center space-x-4">
@@ -86,7 +86,7 @@ export default function Navbar() {
                     </div>
                     
                     <MenuLink to="/profile" icon={<FaUser />} label="Hồ sơ cá nhân" />
-                    <MenuLink to="/my-bookings" icon={<FaClipboardList />} label="Lịch trình của tôi" />
+                    <MenuLink to="/my-bookings" icon={<FaClipboardList />} label="Đặt phòng của tôi" />
                     <MenuLink to="/favorites" icon={<FaHeart />} label="Phòng yêu thích" />
                     
                     <div className="border-t border-gray-50 mt-1 pt-1">

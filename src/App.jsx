@@ -25,6 +25,8 @@ import CheckInOut from "./pages/staff/CheckInOut";
 import StaffHotelManager from "./pages/staff/StaffHotelManager";
 import StaffRoomTypeDetail from "./pages/staff/StaffRoomTypeDetail";
 import StaffRoomLockManager from "./pages/staff/StaffRoomLockManager";
+import StaffReviewManager from "./pages/staff/StaffReviewManager";
+
 
 
 
@@ -128,7 +130,7 @@ export default function App() {
           <Route path="checkin-out" element={<CheckInOut />} />
           <Route path="hotel" element={<StaffHotelManager />} />
           <Route path="room-type-lock" element={<StaffRoomLockManager />} />
-
+          <Route path="reviews" element={<StaffReviewManager />} />
 
           <Route path="room-types/:id" element={<StaffRoomTypeDetail />} />
         </Route>

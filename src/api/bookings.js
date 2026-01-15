@@ -132,3 +132,11 @@ export const getBookingsByBranch = (branchId, dateStr) => {
     params: { date: dateStr }
   });
 };
+
+
+
+// Hủy đặt phòng (Khách hàng tự hủy)
+// PUT /bookings/cancel/{bookingId}
+export const cancelBooking = (bookingId) => {
+  return axiosInstance.put(`${API_BASE_URL}/bookings/cancel/${bookingId}`);
+};
