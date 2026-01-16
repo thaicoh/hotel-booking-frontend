@@ -69,7 +69,7 @@ export default function Login() {
             <h2 className="text-5xl font-black mb-6 tracking-tight">XANH HOTEL</h2>
             <div className="bg-white p-4 rounded-3xl shadow-xl mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-500">
                 <img
-                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Go2Joy_logo.svg/512px-Go2Joy_logo.svg.png"
+                    src="https://gudlogo.com/wp-content/uploads/2019/04/logo-chiec-la-74.jpeg"
                     alt="Logo"
                     className="h-16"
                 />

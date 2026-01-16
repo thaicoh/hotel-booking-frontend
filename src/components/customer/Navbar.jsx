@@ -34,7 +34,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex-shrink-0 flex items-center group">
             <img
-              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLpPHAjlF8ipYNb7DdvLU90sNFJZZbDWPWew&s"
+              src="https://gudlogo.com/wp-content/uploads/2019/04/logo-chiec-la-74.jpeg"
               className="h-10 w-auto transition-transform group-hover:scale-105"
               alt="Logo"
             />

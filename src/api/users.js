@@ -62,3 +62,9 @@ export const updateUserStatus = (email, status) => {
 export const getMyInfo = () => {
   return axiosInstance.get(`${API_BASE_URL}/users/me`);
 };
+
+// ✅ Đổi mật khẩu
+export const changePassword = (data) => {
+  // data: { oldPassword, newPassword }
+  return axiosInstance.post(`${API_BASE_URL}/users/change-password`, data);
+};

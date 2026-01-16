@@ -114,7 +114,7 @@ export default function Register() {
             </div>
             <div className="bg-white p-5 rounded-[2rem] shadow-2xl mb-8 inline-block transform rotate-3">
               <img
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/Go2Joy_logo.svg/512px-Go2Joy_logo.svg.png"
+                src="https://gudlogo.com/wp-content/uploads/2019/04/logo-chiec-la-74.jpeg"
                 alt="Logo"
                 className="h-14"
               />
