@@ -455,7 +455,7 @@ export default function RoomTypeDetail() {
         isActive: true,
         weekendSurcharge: Number(editingRowData?.weekendSurcharge) || 0,
         additionalHourPrice: Number(editingRowData?.additionalHourPrice) || 0,
-        maxHours: 4,
+        maxHours: 5,
       };
 
       if (!editingRowData?.id) {

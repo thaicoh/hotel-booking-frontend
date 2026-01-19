@@ -100,7 +100,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-gray-100 flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-10">
       <div className="flex flex-col md:flex-row bg-white shadow-2xl rounded-[2.5rem] overflow-hidden max-w-6xl w-full border border-white">
         
         {/* Cột Trái: Thông điệp Ưu đãi */}

@@ -42,6 +42,11 @@ const MyBookingsPage = () => {
     }
   };
 
+    // 👉 Cuộn lên đầu trang khi component mount
+  useEffect(() => {
+      window.scrollTo(0, 0);
+  }, []);  
+
   useEffect(() => {
     fetchBookings();
   }, []);

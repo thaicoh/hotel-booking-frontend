@@ -57,26 +57,28 @@ const CheckoutPage = () => {
         return;
       }
 
-      // 2. Gọi Backend để verify chữ ký và update DB
-      try {
-        setLoading(true); // Hiện loading để user không bấm lung tung
-        const res = await verifyVnPayPayment(vnpParamsObj);
+      navigate("/my-bookings");
 
-        if (res.data && res.data.code === 1000) {
-          const amount = Number(params.get("vnp_Amount") || 0) / 100;
-          alert(`✅ Thanh toán thành công ${amount.toLocaleString("vi-VN")}đ! Đơn hàng đã được xác nhận.`);
-          navigate("/my-bookings"); // Hoặc trang lịch sử booking
-        } else {
-          alert(`⚠️ Thanh toán thành công tại ngân hàng nhưng lỗi ghi nhận tại hệ thống: ${res.data.message}`);
-          // Vẫn navigate về profile để họ check lại
-          navigate("/my-bookings");
-        }
-      } catch (err) {
-        console.error("VnPay verify error:", err);
-        alert("Có lỗi kết nối khi xác thực thanh toán. Vui lòng liên hệ bộ phận CSKH.");
-      } finally {
-        setLoading(false);
-      }
+      // 2. Gọi Backend để verify chữ ký và update DB
+      // try {
+      //   setLoading(true); // Hiện loading để user không bấm lung tung
+      //   const res = await verifyVnPayPayment(vnpParamsObj);
+
+      //   if (res.data && res.data.code === 1000) {
+      //     const amount = Number(params.get("vnp_Amount") || 0) / 100;
+      //     alert(`✅ Thanh toán thành công ${amount.toLocaleString("vi-VN")}đ! Đơn hàng đã được xác nhận.`);
+      //     navigate("/my-bookings"); // Hoặc trang lịch sử booking
+      //   } else {
+      //     alert(`⚠️ Thanh toán thành công tại ngân hàng nhưng lỗi ghi nhận tại hệ thống: ${res.data.message}`);
+      //     // Vẫn navigate về profile để họ check lại
+      //     navigate("/my-bookings");
+      //   }
+      // } catch (err) {
+      //   console.error("VnPay verify error:", err);
+      //   alert("Có lỗi kết nối khi xác thực thanh toán. Vui lòng liên hệ bộ phận CSKH.");
+      // } finally {
+      //   setLoading(false);
+      // }
     };
 
     handleVnPayReturn();

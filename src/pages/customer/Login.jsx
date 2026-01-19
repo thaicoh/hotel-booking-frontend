@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { loginApi } from "../../api/users";
 import { useNavigate, Link } from "react-router-dom";
@@ -11,6 +11,13 @@ export default function Login() {
 
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  
+  // 👉 Cuộn lên đầu trang khi component mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -48,7 +55,7 @@ export default function Login() {
       else if (roles.includes("STAFF")) navigate("/staff", { replace: true });
       else navigate("/", { replace: true });
     } catch (err) {
-      const message = err?.response?.data?.message || "Sai thông tin đăng nhập";
+      const message = err?.data?.message || "Sai thông tin đăng nhập";
       alert(message);
     } finally {
       setLoading(false);

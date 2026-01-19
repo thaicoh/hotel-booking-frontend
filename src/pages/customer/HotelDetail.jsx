@@ -9,7 +9,7 @@ import { API_BASE_URL } from "../../config/api";
 import RoomDetailModal from "../../components/customer/RoomDetailModal"
 
 export default function HotelDetail() {
-
+    // ... (Giữ nguyên các phần logic xử lý params, state như cũ) ...
     const [searchParams, setSearchParams] = useSearchParams();
 
     const hotelId = searchParams.get("hotelId");
@@ -21,29 +21,24 @@ export default function HotelDetail() {
 
     const buildCheckInOut = ({ bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours }) => {
         if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
-
         const appendTime = (dateStr, timeStr) => {
             if (!dateStr) return null;
             return dateStr.includes("T") ? dateStr : `${dateStr}T${timeStr}`;
         };
-
         if (bookingTypeCode === "HOUR") {
             const checkIn = (checkInDate && checkInTime) ? appendTime(checkInDate, `${checkInTime}:00`) : null;
             return { checkIn, checkOut: null, hours: hours ? Number(hours) : null };
         }
-
         if (bookingTypeCode === "NIGHT") {
             const checkIn = appendTime(checkInDate, "21:00:00");
             const checkOut = appendTime(checkOutDate, "12:00:00");
             return { checkIn, checkOut, hours: null };
         }
-
         if (bookingTypeCode === "DAY") {
             const checkIn = appendTime(checkInDate, "14:00:00");
             const checkOut = appendTime(checkOutDate, "12:00:00");
             return { checkIn, checkOut, hours: null };
         }
-
         return { checkIn: null, checkOut: null, hours: null };
     };
 
@@ -62,6 +57,7 @@ export default function HotelDetail() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // ... (Giữ nguyên các logic Modal, Helpers, Events) ...
     // Modal Image Logic
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -70,23 +66,16 @@ export default function HotelDetail() {
         setCurrentImageIndex(index);
         setIsModalOpen(true);
     };
-
-    const closeModal = () => {
-        setIsModalOpen(false);
-    };
-
+    const closeModal = () => setIsModalOpen(false);
     const nextImage = () => {
         if (!branchDetail?.rooms) return;
         const allImages = branchDetail.rooms.flatMap((room) => room.photoUrls || []);
         setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
     };
-
     const prevImage = () => {
         if (!branchDetail?.rooms) return;
         const allImages = branchDetail.rooms.flatMap((room) => room.photoUrls || []);
-        setCurrentImageIndex(
-            (prev) => (prev - 1 + allImages.length) % allImages.length
-        );
+        setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
     };
 
     // Helpers
@@ -98,19 +87,22 @@ export default function HotelDetail() {
         d.setDate(d.getDate() + 1);
         return d.toISOString().split("T")[0];
     };
-
     const setParam = (key, value) => {
         const p = new URLSearchParams(searchParams);
         if (value === null || value === undefined || value === "") p.delete(key);
         else p.set(key, value);
         setSearchParams(p, { replace: true });
     };
-
     const replaceParams = (updater) => {
         const p = new URLSearchParams(searchParams);
         updater(p);
         setSearchParams(p, { replace: true });
     };
+
+    // 👉 Cuộn lên đầu trang khi component mount
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     // Events
     const handleChangeType = (code) => {
@@ -125,7 +117,6 @@ export default function HotelDetail() {
             }
         });
     };
-
     const handlePickCheckIn = (dateObj) => {
         const ymd = dateObj ? toYMD(dateObj) : "";
         replaceParams((p) => {
@@ -147,12 +138,10 @@ export default function HotelDetail() {
     // Room detail modal 
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-
     const handleViewRoomDetail = (room) => {
         setSelectedRoom(room);
         setIsRoomModalOpen(true);
     };
-
     const closeRoomModal = () => {
         setIsRoomModalOpen(false);
         setSelectedRoom(null);
@@ -160,21 +149,18 @@ export default function HotelDetail() {
 
     const HOURS_OPTIONS = ["13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
     const pad2 = (n) => String(n).padStart(2, "0");
-
     const toYMDLocal = (d) => {
         const y = d.getFullYear();
         const m = pad2(d.getMonth() + 1);
         const day = pad2(d.getDate());
         return `${y}-${m}-${day}`;
     };
-
     const addDaysYMD = (ymd, n) => {
         const [y, m, d] = ymd.split("-").map(Number);
         const dt = new Date(y, m - 1, d);
         dt.setDate(dt.getDate() + n);
         return toYMDLocal(dt);
     };
-
     const getDefaultHourTime = () => {
         const now = new Date();
         const currentHour = now.getHours();
@@ -189,6 +175,7 @@ export default function HotelDetail() {
         return { dayOffset: 0, time: HOURS_OPTIONS[0] };
     };
 
+    // --- EFFECT FETCH DATA ---
     useEffect(() => {
         const fetchHotel = async () => {
             if (!hotelId || !bookingTypeCode) return;
@@ -207,8 +194,10 @@ export default function HotelDetail() {
         };
         fetchHotel();
     }, [hotelId, bookingTypeCode, checkIn, checkOut, hoursNum]);
+    // -------------------------
 
     useEffect(() => {
+        // ... Logic set default params ...
         const p = new URLSearchParams(searchParams);
         const code = p.get("bookingTypeCode") || "HOUR";
         let shouldUpdate = false;
@@ -236,7 +225,6 @@ export default function HotelDetail() {
                 shouldUpdate = true;
             }
         }
-
         if (code === "NIGHT") {
             if (!p.get("checkInDate")) {
                 p.set("checkInDate", todayYMD);
@@ -254,7 +242,6 @@ export default function HotelDetail() {
                 shouldUpdate = true;
             }
         }
-
         if (code === "DAY") {
             if (!p.get("checkInDate")) {
                 p.set("checkInDate", todayYMD);
@@ -270,17 +257,28 @@ export default function HotelDetail() {
                 shouldUpdate = true;
             }
         }
-
         if (shouldUpdate) {
             setSearchParams(p, { replace: true });
         }
     }, [searchParams, setSearchParams]);
 
-    // CHECK BRANCH STATUS
     const isMaintenance = branchDetail && branchDetail.branchStatus !== 'ACTIVE';
 
+    // === LOGIC MỚI: Chỉ hiện full loading khi chưa có dữ liệu (lần đầu vào) ===
+    if (loading && !branchDetail) {
+        return (
+            <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-[50vh]">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-600 mb-4"></div>
+                <p className="text-gray-600 font-medium text-lg">Đang tải thông tin khách sạn...</p>
+            </div>
+        );
+    }
+    // =========================================================================
+
     return (
-        <div className="container mx-auto p-4">
+        // Thêm opacity-50 khi đang re-fetch dữ liệu (loading = true nhưng đã có branchDetail)
+        <div className={`container mx-auto p-4 transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+            
             {/* Section 1: Hotel Images */}
             {branchDetail && (
                 <div className="flex flex-col lg:flex-row mb-6 bg-white p-4 lg:p-6 rounded-md shadow-md">
@@ -327,7 +325,7 @@ export default function HotelDetail() {
 
             {/* Modal Slideshow */}
             {isModalOpen && branchDetail && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4">
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4 pointer-events-auto">
                     <div className="bg-white p-2 rounded-lg w-full max-w-4xl relative">
                         <button onClick={closeModal} className="absolute top-2 right-4 text-black text-4xl z-10">&times;</button>
                         <div className="relative flex items-center justify-center">
@@ -360,7 +358,6 @@ export default function HotelDetail() {
                         <h1 className="text-2xl lg:text-3xl font-semibold">
                             {branchDetail.branchName}
                         </h1>
-                        {/* Nhãn trạng thái bên cạnh tên khách sạn */}
                         {isMaintenance && (
                             <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-bold rounded-full border border-red-300">
                                 Đang bảo trì
@@ -371,7 +368,6 @@ export default function HotelDetail() {
                 </div>
             )}
 
-            {/* THÔNG BÁO BẢO TRÌ */}
             {isMaintenance && (
                 <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded shadow-sm flex items-start">
                     <div className="mr-3 text-red-500">
@@ -391,7 +387,6 @@ export default function HotelDetail() {
 
             {/* Khối đặt phòng */}
             <div className={`bg-white p-4 lg:p-6 rounded-md shadow-md transition-opacity duration-300 ${isMaintenance ? "opacity-60 pointer-events-none select-none grayscale-[50%]" : ""}`}>
-                {/* Loại đặt phòng */}
                 <div className="mb-6">
                     <h3 className="font-semibold text-gray-700 mb-2">Loại đặt phòng</h3>
                     <div className="flex flex-wrap gap-2 lg:gap-4">
@@ -412,7 +407,6 @@ export default function HotelDetail() {
                     </div>
                 </div>
 
-                {/* Ngày giờ */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
                     <h3 className="w-full lg:w-32 font-semibold text-gray-700">Ngày giờ</h3>
 
@@ -508,7 +502,6 @@ export default function HotelDetail() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {branchDetail.rooms?.map((room) => {
                             const isSoldOut = room.availableRooms === 0;
-                            // LOGIC: Disable nếu đang bảo trì HOẶC hết phòng
                             const isLocked = isMaintenance || isSoldOut;
 
                             return (
@@ -518,10 +511,8 @@ export default function HotelDetail() {
                                         isLocked ? "grayscale opacity-75 pointer-events-none select-none bg-gray-100" : ""
                                     }`}
                                 >
-                                    {/* Overlay Logic */}
                                     {isLocked && (
                                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/10 rounded-lg">
-                                            {/* Ưu tiên hiện chữ BẢO TRÌ, nếu không bảo trì mới check hết phòng */}
                                             {isMaintenance ? (
                                                 <div className="bg-gray-800 text-white px-6 py-2 font-bold text-lg rounded shadow-lg transform -rotate-12 border-2 border-white">
                                                     BẢO TRÌ

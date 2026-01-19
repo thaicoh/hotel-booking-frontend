@@ -20,6 +20,12 @@ export default function Profile() {
 
   const navigate = useNavigate();
 
+    // 👉 Cuộn lên đầu trang khi component mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -80,7 +86,6 @@ export default function Profile() {
         throw { data: res.data }; 
       }
     } catch (err) {
-      // 🟢 SỬA LỖI TẠI ĐÂY
       // Do interceptor trả về `Promise.reject(error.response)` nên `err` ở đây chính là response object
       // Chúng ta lấy data từ `err.data`
       
