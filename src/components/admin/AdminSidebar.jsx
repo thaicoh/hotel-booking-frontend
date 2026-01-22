@@ -16,7 +16,7 @@ export default function AdminSidebar() {
     { label: "Quản lý chi nhánh", path: "/admin/branches", icon: <FaHotel /> },
     { label: "Quản lý loại phòng", path: "/admin/roomtypes", icon: <FaBed /> },
     { label: "Quản lý booking", path: "/admin/bookings", icon: <FaCalendarCheck /> },
-    { label: "Quản lý đánh giá", path: "/admin/reports", icon: <FaFileAlt /> },
+    { label: "Quản lý đánh giá", path: "/admin/reviews", icon: <FaFileAlt /> },
   ];
 
   const handleLogout = () => {

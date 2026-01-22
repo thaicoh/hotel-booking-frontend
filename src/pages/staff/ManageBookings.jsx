@@ -97,6 +97,23 @@ const ManageBookings = () => {
   const [selectedStatus, setSelectedStatus] = useState("");   // Trạng thái mới đang chọn
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // 1. Khai báo hàm format ở trên return của component
+    const formatDateTime = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    
+    // 'en-GB' sẽ trả về dd/mm/yyyy.
+    // Thêm hour/minute để lấy giờ. hour12: false để dùng định dạng 24h.
+    return date.toLocaleString('en-GB', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false 
+    });
+    };
+
   // ============================================================
   // 1️⃣ KHỞI TẠO DATA
   // ============================================================
@@ -489,10 +506,16 @@ const ManageBookings = () => {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4 text-xs text-gray-600">
-                        <div><span className="font-semibold w-8 inline-block">In:</span> {booking.checkInDate}</div>
-                        <div><span className="font-semibold w-8 inline-block">Out:</span> {booking.checkOutDate}</div>
-                      </td>
+                        <td className="px-6 py-4 text-xs text-gray-600">
+                            <div className="mb-1"> {/* Thêm mb-1 cho thoáng nếu cần */}
+                                <span className="font-semibold w-8 inline-block text-gray-800">In:</span> 
+                                {formatDateTime(booking.checkInDate)}
+                            </div>
+                            <div>
+                                <span className="font-semibold w-8 inline-block text-gray-800">Out:</span> 
+                                {formatDateTime(booking.checkOutDate)}
+                            </div>
+                        </td>
 
                       <td className="px-6 py-4 font-bold text-gray-900 whitespace-nowrap">
                         {formatCurrency(booking.totalPrice)}

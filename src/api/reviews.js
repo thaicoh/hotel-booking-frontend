@@ -24,3 +24,10 @@ export const createReview = (data) => {
   // data: { bookingId, rating, comment }
   return axiosInstance.post(`${API_BASE_URL}/reviews`, data);
 };
+
+// api/reviews.js
+export const getReviewsForAdmin = (branchId = null, roomTypeId = null) => {
+  return axiosInstance.get(`${API_BASE_URL}/reviews/admin`, {
+    params: { branchId, roomTypeId }
+  });
+};

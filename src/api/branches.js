@@ -78,3 +78,9 @@ export const getHotelDetailWithBooking = (branchId, payload) => {
     ...payload,
   });
 };
+
+export const getBranchReviews = (branchId, page = 0, size = 5) => {
+    return axiosInstance.get(`${API_BASE_URL}/reviews/branch/${branchId}/paged`, {
+        params: { page, size }
+    });
+};

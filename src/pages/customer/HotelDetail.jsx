@@ -4,12 +4,12 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import DailyBookingPicker from "../../components/customer/DailyBookingPicker";
-import { getHotelDetailWithBooking } from "../../api/branches"
+// 👇 Đảm bảo bạn đã export hàm getBranchReviews từ file api
+import { getHotelDetailWithBooking, getBranchReviews } from "../../api/branches"; 
 import { API_BASE_URL } from "../../config/api";
-import RoomDetailModal from "../../components/customer/RoomDetailModal"
+import RoomDetailModal from "../../components/customer/RoomDetailModal";
 
 export default function HotelDetail() {
-    // ... (Giữ nguyên các phần logic xử lý params, state như cũ) ...
     const [searchParams, setSearchParams] = useSearchParams();
 
     const hotelId = searchParams.get("hotelId");
@@ -19,6 +19,7 @@ export default function HotelDetail() {
     const checkInTime = searchParams.get("checkInTime");
     const hours = searchParams.get("hours");
 
+    // --- Helpers xử lý ngày tháng ---
     const buildCheckInOut = ({ bookingTypeCode, checkInDate, checkOutDate, checkInTime, hours }) => {
         if (!bookingTypeCode) return { checkIn: null, checkOut: null, hours: null };
         const appendTime = (dateStr, timeStr) => {
@@ -53,12 +54,18 @@ export default function HotelDetail() {
         hours: hoursNum,
     };
 
+    // --- State chính ---
     const [branchDetail, setBranchDetail] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // ... (Giữ nguyên các logic Modal, Helpers, Events) ...
-    // Modal Image Logic
+    // --- State Reviews (MỚI) ---
+    const [reviewsData, setReviewsData] = useState({ content: [], totalPages: 0, number: 0 });
+    const [loadingReviews, setLoadingReviews] = useState(false);
+    const [reviewPage, setReviewPage] = useState(0); // Page bắt đầu từ 0
+    const REVIEW_PAGE_SIZE = 5;
+
+    // --- State Modal Image ---
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -78,7 +85,7 @@ export default function HotelDetail() {
         setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
     };
 
-    // Helpers
+    // --- Helpers General ---
     const toYMD = (d) => toYMDLocal(d);
     const fromYMD = (s) => (s ? new Date(s) : null);
     const getNextDay = (dateStr) => {
@@ -97,6 +104,32 @@ export default function HotelDetail() {
         const p = new URLSearchParams(searchParams);
         updater(p);
         setSearchParams(p, { replace: true });
+    };
+    
+    // Format ngày giờ hiển thị cho Review
+    const formatDateTime = (isoString) => {
+        if (!isoString) return "";
+        const date = new Date(isoString);
+        return date.toLocaleString('vi-VN', { 
+            year: 'numeric', month: '2-digit', day: '2-digit', 
+            hour: '2-digit', minute: '2-digit' 
+        });
+    };
+
+    // Render sao đánh giá
+    const renderStars = (rating) => {
+        return [...Array(5)].map((_, index) => (
+            <svg 
+                key={index} 
+                className={`w-4 h-4 ${index < rating ? 'text-yellow-400' : 'text-gray-300'}`} 
+                aria-hidden="true" 
+                xmlns="http://www.w3.org/2000/svg" 
+                fill="currentColor" 
+                viewBox="0 0 22 20"
+            >
+                <path d="M20.924 7.625a1.523 1.523 0 0 0-1.238-1.044l-5.051-.734-2.259-4.577a1.534 1.534 0 0 0-2.752 0L7.365 5.847l-5.051.734A1.535 1.535 0 0 0 1.463 9.2l3.656 3.563-.863 5.031a1.532 1.532 0 0 0 2.226 1.616L11 17.033l4.518 2.375a1.534 1.534 0 0 0 2.226-1.617l-.863-5.03L20.537 9.2a1.523 1.523 0 0 0 .387-1.575Z" />
+            </svg>
+        ));
     };
 
     // 👉 Cuộn lên đầu trang khi component mount
@@ -175,7 +208,7 @@ export default function HotelDetail() {
         return { dayOffset: 0, time: HOURS_OPTIONS[0] };
     };
 
-    // --- EFFECT FETCH DATA ---
+    // --- EFFECT FETCH HOTEL DATA ---
     useEffect(() => {
         const fetchHotel = async () => {
             if (!hotelId || !bookingTypeCode) return;
@@ -194,10 +227,33 @@ export default function HotelDetail() {
         };
         fetchHotel();
     }, [hotelId, bookingTypeCode, checkIn, checkOut, hoursNum]);
-    // -------------------------
 
+    // --- EFFECT FETCH REVIEWS (MỚI) ---
     useEffect(() => {
-        // ... Logic set default params ...
+        const fetchReviews = async () => {
+            if (!hotelId) return;
+            try {
+                console.log("goi review")
+                setLoadingReviews(true);
+                const res = await getBranchReviews(hotelId, reviewPage, REVIEW_PAGE_SIZE);
+                // Giả sử API trả về result có chứa content, totalPages, number
+                const result = res.data?.result; 
+                setReviewsData({
+                    content: result?.content || [],
+                    totalPages: result?.totalPages || 0,
+                    number: result?.number || 0
+                });
+            } catch (err) {
+                console.error("❌ Lỗi khi tải đánh giá:", err);
+            } finally {
+                setLoadingReviews(false);
+            }
+        };
+        fetchReviews();
+    }, [hotelId, reviewPage]);
+
+    // ... Logic set default params ...
+    useEffect(() => {
         const p = new URLSearchParams(searchParams);
         const code = p.get("bookingTypeCode") || "HOUR";
         let shouldUpdate = false;
@@ -264,7 +320,6 @@ export default function HotelDetail() {
 
     const isMaintenance = branchDetail && branchDetail.branchStatus !== 'ACTIVE';
 
-    // === LOGIC MỚI: Chỉ hiện full loading khi chưa có dữ liệu (lần đầu vào) ===
     if (loading && !branchDetail) {
         return (
             <div className="container mx-auto p-4 flex flex-col items-center justify-center min-h-[50vh]">
@@ -273,10 +328,8 @@ export default function HotelDetail() {
             </div>
         );
     }
-    // =========================================================================
 
     return (
-        // Thêm opacity-50 khi đang re-fetch dữ liệu (loading = true nhưng đã có branchDetail)
         <div className={`container mx-auto p-4 transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             
             {/* Section 1: Hotel Images */}
@@ -550,6 +603,86 @@ export default function HotelDetail() {
                             );
                         })}
                     </div>
+                </div>
+            )}
+
+            {/* ========================================================= */}
+            {/* NEW SECTION: ĐÁNH GIÁ CỦA KHÁCH HÀNG (REVIEWS) */}
+            {/* ========================================================= */}
+            {branchDetail && (
+                <div className="mt-8 bg-white p-6 rounded-md shadow-md">
+                    <h3 className="text-xl font-semibold mb-6 flex items-center">
+                        Đánh giá từ khách hàng
+                        {reviewsData.content?.length > 0 && (
+                             <span className="ml-2 text-sm font-normal text-gray-500">
+                                ({reviewsData.content.length} đánh giá trang này)
+                            </span>
+                        )}
+                    </h3>
+                    
+                    {loadingReviews ? (
+                         <div className="flex justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-600"></div>
+                        </div>
+                    ) : reviewsData.content && reviewsData.content.length > 0 ? (
+                        <div className="space-y-6">
+                            {reviewsData.content.map((review) => (
+                                <div key={review.reviewId} className="border-b border-gray-100 pb-6 last:border-0 last:pb-0">
+                                    <div className="flex items-start">
+                                        {/* Avatar Placeholder */}
+                                        <div className="flex-shrink-0 mr-4">
+                                            <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold text-lg uppercase">
+                                                {review.user?.fullName?.charAt(0) || "U"}
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-gray-800">{review.user?.fullName || "Khách hàng ẩn danh"}</h4>
+                                                    <p className="text-xs text-gray-500 mt-1">{formatDateTime(review.createdAt)}</p>
+                                                </div>
+                                                <div className="flex items-center">
+                                                    {renderStars(review.rating)}
+                                                </div>
+                                            </div>
+                                            <div className="mt-2 text-gray-700 text-sm leading-relaxed">
+                                                {review.comment}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-gray-500">
+                            Chưa có đánh giá nào cho chi nhánh này.
+                        </div>
+                    )}
+
+                    {/* Pagination Controls */}
+                    {reviewsData.totalPages > 1 && (
+                        <div className="flex justify-center items-center mt-8 gap-2">
+                            <button
+                                onClick={() => setReviewPage(p => Math.max(0, p - 1))}
+                                disabled={reviewPage === 0 || loadingReviews}
+                                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Trước
+                            </button>
+                            
+                            <span className="text-sm text-gray-600 font-medium">
+                                Trang {reviewPage + 1} / {reviewsData.totalPages}
+                            </span>
+
+                            <button
+                                onClick={() => setReviewPage(p => Math.min(reviewsData.totalPages - 1, p + 1))}
+                                disabled={reviewPage >= reviewsData.totalPages - 1 || loadingReviews}
+                                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 

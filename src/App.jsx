@@ -39,7 +39,7 @@ import ManageRoomTypes from "./pages/admin/ManageRoomTypes"
 import RoomTypeDetail from "./pages/admin/RoomTypeDetail";
 
 
-import Reports from "./pages/admin/Reports";
+import AdminReviewManager from "./pages/admin/AdminReviewManager";
 
 // ✅ Route guards
 import AdminRoute from "./routes/AdminRoute";
@@ -149,7 +149,7 @@ export default function App() {
           <Route path="branches" element={<ManageBranches />} />
           <Route path="bookings" element={<ManageBookingsAdmin />} />
           <Route path="roomtypes" element={<ManageRoomTypes />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="reviews" element={<AdminReviewManager />} />
           <Route path="room-types/:id" element={<RoomTypeDetail />} />
         </Route>
 
